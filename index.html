@@ -2,9 +2,84 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
-<title>ArtAR</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ArtAR — アートフリマARプラットフォーム</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Shippori+Mincho:wght@400;600;800&family=DM+Mono:wght@300;400&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --ink:   #1a1410;
+    --paper: #f5f0e8;
+    --sepia: #c8a96e;
+    --rust:  #b85c38;
+    --smoke: #8a7f72;
+  }
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--ink);
+    color: #fff;
+    font-family: 'Shippori Mincho', serif;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 40px 24px;
+    text-align: center;
+  }
+  .logo {
+    font-size: 48px;
+    font-weight: 800;
+    letter-spacing: 0.15em;
+    color: var(--sepia);
+    margin-bottom: 8px;
+  }
+  .tagline {
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.3em;
+    color: rgba(255,255,255,0.35);
+    margin-bottom: 60px;
+    text-transform: uppercase;
+  }
+  .btn {
+    display: block;
+    width: 100%;
+    max-width: 320px;
+    padding: 18px;
+    border-radius: 4px;
+    font-family: 'Shippori Mincho', serif;
+    font-size: 15px;
+    font-weight: 800;
+    letter-spacing: 0.12em;
+    text-decoration: none;
+    margin-bottom: 12px;
+    transition: opacity 0.2s;
+  }
+  .btn:hover { opacity: 0.85; }
+  .btn-primary { background: var(--rust); color: #fff; }
+  .btn-secondary {
+    background: transparent;
+    color: rgba(255,255,255,0.6);
+    border: 1px solid rgba(255,255,255,0.2);
+    font-size: 13px;
+  }
+  .footer {
+    margin-top: 60px;
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    color: rgba(255,255,255,0.2);
+    letter-spacing: 0.2em;
+  }
+</style>
 </head>
 <body>
-<h1>ArtAR</h1>
+  <div class="logo">ArtAR</div>
+  <div class="tagline">Art Flea Market AR Platform</div>
+
+  <a href="/register" class="btn btn-primary">✦ 作家登録する</a>
+  <a href="#" class="btn btn-secondary">ARページのサンプルを見る</a>
+
+  <div class="footer">MAGATOKI Laboratory</div>
 </body>
 </html>

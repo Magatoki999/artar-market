@@ -1,0 +1,626 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>作家登録 — ArtAR</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Shippori+Mincho:wght@400;600;800&family=DM+Mono:wght@300;400&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<style>
+  :root {
+    --ink:    #1a1410;
+    --paper:  #f5f0e8;
+    --sepia:  #c8a96e;
+    --rust:   #b85c38;
+    --smoke:  #8a7f72;
+    --pale:   #ede8df;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--paper);
+    color: var(--ink);
+    font-family: 'Shippori Mincho', serif;
+    min-height: 100vh;
+    padding: 0 0 80px;
+  }
+
+  /* --- ヘッダー --- */
+  header {
+    border-bottom: 1px solid var(--sepia);
+    padding: 28px 32px 20px;
+    display: flex;
+    align-items: baseline;
+    gap: 16px;
+  }
+  .logo {
+    font-size: 22px;
+    font-weight: 800;
+    letter-spacing: 0.12em;
+    color: var(--rust);
+  }
+  .logo-sub {
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    color: var(--smoke);
+    letter-spacing: 0.2em;
+  }
+
+  /* --- メインレイアウト --- */
+  main {
+    max-width: 640px;
+    margin: 0 auto;
+    padding: 48px 24px 0;
+  }
+
+  .page-title {
+    font-size: 28px;
+    font-weight: 800;
+    letter-spacing: 0.06em;
+    line-height: 1.3;
+    margin-bottom: 8px;
+  }
+  .page-desc {
+    font-size: 13px;
+    color: var(--smoke);
+    line-height: 1.8;
+    margin-bottom: 40px;
+  }
+
+  /* --- セクション区切り --- */
+  .section-label {
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.25em;
+    color: var(--rust);
+    text-transform: uppercase;
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .section-label::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--sepia);
+    opacity: 0.4;
+  }
+
+  /* --- フォーム --- */
+  .form-group {
+    margin-bottom: 28px;
+  }
+  label {
+    display: block;
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    margin-bottom: 8px;
+    color: var(--ink);
+  }
+  label .required {
+    color: var(--rust);
+    margin-left: 4px;
+    font-size: 11px;
+  }
+  label .hint {
+    font-weight: 400;
+    color: var(--smoke);
+    font-size: 11px;
+    margin-left: 6px;
+    letter-spacing: 0.04em;
+  }
+
+  input[type="text"],
+  input[type="url"],
+  input[type="number"],
+  textarea,
+  select {
+    width: 100%;
+    background: #fff;
+    border: 1px solid #d8d0c4;
+    border-radius: 4px;
+    padding: 12px 14px;
+    font-family: 'Shippori Mincho', serif;
+    font-size: 15px;
+    color: var(--ink);
+    transition: border-color 0.2s, box-shadow 0.2s;
+    outline: none;
+    appearance: none;
+  }
+  input:focus, textarea:focus, select:focus {
+    border-color: var(--sepia);
+    box-shadow: 0 0 0 3px rgba(200,169,110,0.15);
+  }
+  textarea { resize: vertical; min-height: 100px; line-height: 1.7; }
+
+  /* 画像プレビュー */
+  .img-preview-wrap {
+    margin-top: 10px;
+    width: 100%;
+    height: 180px;
+    border: 1px dashed #c8b89a;
+    border-radius: 4px;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--pale);
+    transition: all 0.3s;
+  }
+  .img-preview-wrap img {
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: contain;
+    display: none;
+  }
+  .img-preview-wrap .placeholder {
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    color: #b0a898;
+    letter-spacing: 0.1em;
+  }
+
+  /* 価格行 */
+  .price-row {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+  }
+  .price-row input { flex: 1; }
+  .price-unit {
+    font-size: 14px;
+    color: var(--smoke);
+    white-space: nowrap;
+  }
+
+  /* キャラ設定 */
+  .char-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+  }
+  .char-option {
+    border: 1px solid #d8d0c4;
+    border-radius: 6px;
+    padding: 14px 12px;
+    cursor: pointer;
+    transition: all 0.2s;
+    background: #fff;
+    text-align: center;
+  }
+  .char-option:hover { border-color: var(--sepia); background: var(--pale); }
+  .char-option input[type="radio"] { display: none; }
+  .char-option.selected {
+    border-color: var(--rust);
+    background: #fff7f4;
+  }
+  .char-option .char-name { font-size: 15px; font-weight: 600; display: block; margin-bottom: 4px; }
+  .char-option .char-desc { font-size: 11px; color: var(--smoke); }
+
+  /* --- 送信ボタン --- */
+  .submit-btn {
+    width: 100%;
+    background: var(--rust);
+    color: #fff;
+    border: none;
+    border-radius: 4px;
+    padding: 18px;
+    font-family: 'Shippori Mincho', serif;
+    font-size: 16px;
+    font-weight: 800;
+    letter-spacing: 0.15em;
+    cursor: pointer;
+    transition: background 0.2s, transform 0.1s;
+    margin-top: 16px;
+  }
+  .submit-btn:hover { background: #a04e30; }
+  .submit-btn:active { transform: scale(0.99); }
+  .submit-btn:disabled { background: #c0b8b0; cursor: not-allowed; }
+
+  /* --- 完了モーダル --- */
+  .modal-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(26,20,16,0.7);
+    z-index: 100;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+  }
+  .modal-overlay.active { display: flex; }
+  .modal {
+    background: var(--paper);
+    border-radius: 8px;
+    padding: 36px 28px;
+    max-width: 480px;
+    width: 100%;
+    text-align: center;
+  }
+  .modal-title {
+    font-size: 20px;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    margin-bottom: 8px;
+    color: var(--rust);
+  }
+  .modal-desc {
+    font-size: 13px;
+    color: var(--smoke);
+    line-height: 1.8;
+    margin-bottom: 24px;
+  }
+
+  /* QRコード */
+  #qrcode {
+    margin: 0 auto 20px;
+    width: fit-content;
+    padding: 16px;
+    background: #fff;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+  }
+
+  .artist-url {
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    color: var(--smoke);
+    word-break: break-all;
+    background: var(--pale);
+    padding: 10px 14px;
+    border-radius: 4px;
+    margin-bottom: 20px;
+    text-align: left;
+  }
+
+  .modal-actions {
+    display: flex;
+    gap: 10px;
+    flex-direction: column;
+  }
+  .btn-primary {
+    background: var(--rust);
+    color: #fff;
+    border: none;
+    border-radius: 4px;
+    padding: 14px;
+    font-family: 'Shippori Mincho', serif;
+    font-size: 14px;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    cursor: pointer;
+    transition: background 0.2s;
+  }
+  .btn-primary:hover { background: #a04e30; }
+  .btn-secondary {
+    background: transparent;
+    color: var(--smoke);
+    border: 1px solid #d8d0c4;
+    border-radius: 4px;
+    padding: 12px;
+    font-family: 'Shippori Mincho', serif;
+    font-size: 13px;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .btn-secondary:hover { border-color: var(--sepia); color: var(--ink); }
+
+  /* ローディング */
+  .loading-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(245,240,232,0.85);
+    z-index: 200;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    gap: 16px;
+  }
+  .loading-overlay.active { display: flex; }
+  .loading-text {
+    font-size: 14px;
+    color: var(--smoke);
+    letter-spacing: 0.1em;
+  }
+  .spinner {
+    width: 32px; height: 32px;
+    border: 2px solid #d8d0c4;
+    border-top-color: var(--rust);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* エラー */
+  .error-msg {
+    color: var(--rust);
+    font-size: 12px;
+    margin-top: 6px;
+    display: none;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <span class="logo">ArtAR</span>
+  <span class="logo-sub">ARTIST REGISTRATION</span>
+</header>
+
+<main>
+  <h1 class="page-title">作家登録</h1>
+  <p class="page-desc">
+    登録するとあなた専用のARページとQRコードが発行されます。<br>
+    QRコードを印刷してブースに置くだけで、来場者があなたの世界に入れます。
+  </p>
+
+  <form id="registerForm" novalidate>
+
+    <!-- 基本情報 -->
+    <div class="section-label">基本情報</div>
+
+    <div class="form-group">
+      <label>作家名・屋号<span class="required">*</span></label>
+      <input type="text" id="artistName" placeholder="例：山田 花子 / hanako_art" required maxlength="50">
+      <p class="error-msg" id="err-name">作家名を入力してください</p>
+    </div>
+
+    <div class="form-group">
+      <label>ひとこと自己紹介<span class="required">*</span><span class="hint">来場者のAIチャットに使われます</span></label>
+      <textarea id="artistBio" placeholder="例：京都在住の版画作家です。植物をモチーフに木版画を制作しています。素材へのこだわりや制作秘話を気軽に聞いてください。" required maxlength="400"></textarea>
+      <p class="error-msg" id="err-bio">自己紹介を入力してください</p>
+    </div>
+
+    <div class="form-group">
+      <label>作風・こだわり<span class="hint">AIの語り口に反映されます</span></label>
+      <textarea id="artistStyle" placeholder="例：手刷りの質感を大切にしています。一点ものの良さ、インクの重なり、紙の風合いを伝えたいです。" maxlength="300"></textarea>
+    </div>
+
+    <!-- 作品情報 -->
+    <div class="section-label">作品情報</div>
+
+    <div class="form-group">
+      <label>代表作品の画像URL<span class="hint">SNSの画像URLやimgurなど</span></label>
+      <input type="url" id="artworkUrl" placeholder="https://...">
+      <div class="img-preview-wrap" id="imgPreviewWrap">
+        <span class="placeholder">URLを入力するとプレビュー表示</span>
+        <img id="imgPreview" alt="作品プレビュー">
+      </div>
+    </div>
+
+    <div class="form-group">
+      <label>作品ジャンル</label>
+      <select id="artGenre">
+        <option value="">— 選択してください —</option>
+        <option value="原画・水彩">原画・水彩</option>
+        <option value="版画・シルクスクリーン">版画・シルクスクリーン</option>
+        <option value="イラスト・デジタル">イラスト・デジタル</option>
+        <option value="ZINE・手製本">ZINE・手製本</option>
+        <option value="陶芸・クラフト">陶芸・クラフト</option>
+        <option value="その他">その他</option>
+      </select>
+    </div>
+
+    <div class="form-group">
+      <label>価格帯<span class="hint">ARページに表示されます</span></label>
+      <div class="price-row">
+        <input type="number" id="priceMin" placeholder="500" min="0">
+        <span class="price-unit">円〜</span>
+        <input type="number" id="priceMax" placeholder="5000" min="0">
+        <span class="price-unit">円</span>
+      </div>
+    </div>
+
+    <!-- SNS -->
+    <div class="section-label">SNS・連絡先</div>
+
+    <div class="form-group">
+      <label>X（Twitter）<span class="hint">@なし</span></label>
+      <input type="text" id="twitter" placeholder="username">
+    </div>
+
+    <div class="form-group">
+      <label>Instagram<span class="hint">@なし</span></label>
+      <input type="text" id="instagram" placeholder="username">
+    </div>
+
+    <div class="form-group">
+      <label>メールアドレス<span class="hint">作品購入時に通知が届きます</span></label>
+      <input type="text" id="email" placeholder="hello@example.com">
+    </div>
+
+    <!-- ARキャラクター -->
+    <div class="section-label">ARキャラクター選択</div>
+    <p style="font-size:12px;color:var(--smoke);margin-bottom:14px;line-height:1.8;">
+      来場者のARに登場するキャラクターを選んでください。<br>後から変更できます。
+    </p>
+
+    <div class="form-group">
+      <div class="char-grid" id="charGrid">
+        <label class="char-option selected">
+          <input type="radio" name="character" value="utsusemi" checked>
+          <span class="char-name">空蝉</span>
+          <span class="char-desc">落ち着いた内省的な語り口<br>繊細・余韻を大切にする</span>
+        </label>
+        <label class="char-option">
+          <input type="radio" name="character" value="yugao">
+          <span class="char-name">夕顔</span>
+          <span class="char-desc">柔らかく親しみやすい<br>温かみのある語り口</span>
+        </label>
+        <label class="char-option">
+          <input type="radio" name="character" value="ohma">
+          <span class="char-name">Dr. Ohma</span>
+          <span class="char-desc">冷静・論理的な学者タイプ<br>好奇心旺盛でどこか抜けてる</span>
+        </label>
+        <label class="char-option">
+          <input type="radio" name="character" value="aciel">
+          <span class="char-name">Aciel</span>
+          <span class="char-desc">直感的・行動力抜群<br>明るく面倒見の良い姉貴</span>
+        </label>
+      </div>
+    </div>
+
+    <button type="submit" class="submit-btn" id="submitBtn">
+      登録してQRコードを発行する
+    </button>
+
+  </form>
+</main>
+
+<!-- ローディング -->
+<div class="loading-overlay" id="loadingOverlay">
+  <div class="spinner"></div>
+  <p class="loading-text">登録中...</p>
+</div>
+
+<!-- 完了モーダル -->
+<div class="modal-overlay" id="modalOverlay">
+  <div class="modal">
+    <p class="modal-title">登録完了</p>
+    <p class="modal-desc">
+      あなた専用のARページが作成されました。<br>
+      QRコードを印刷してブースに置いてください。
+    </p>
+    <div id="qrcode"></div>
+    <div class="artist-url" id="artistUrlDisplay"></div>
+    <div class="modal-actions">
+      <button class="btn-primary" id="openPageBtn">ARページを確認する</button>
+      <button class="btn-primary" onclick="printQR()">QRコードを印刷・保存</button>
+      <button class="btn-secondary" onclick="location.reload()">別の作家を登録する</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// --- 画像プレビュー ---
+document.getElementById('artworkUrl').addEventListener('input', function() {
+  const url = this.value.trim();
+  const img = document.getElementById('imgPreview');
+  const placeholder = document.querySelector('.placeholder');
+  if (url) {
+    img.src = url;
+    img.style.display = 'block';
+    placeholder.style.display = 'none';
+    img.onerror = () => {
+      img.style.display = 'none';
+      placeholder.style.display = 'block';
+      placeholder.textContent = '画像を読み込めませんでした';
+    };
+  } else {
+    img.style.display = 'none';
+    placeholder.style.display = 'block';
+    placeholder.textContent = 'URLを入力するとプレビュー表示';
+  }
+});
+
+// --- キャラ選択 ---
+document.getElementById('charGrid').addEventListener('change', function(e) {
+  document.querySelectorAll('.char-option').forEach(el => el.classList.remove('selected'));
+  e.target.closest('.char-option').classList.add('selected');
+});
+
+// --- フォーム送信 ---
+document.getElementById('registerForm').addEventListener('submit', async function(e) {
+  e.preventDefault();
+
+  // バリデーション
+  const name = document.getElementById('artistName').value.trim();
+  const bio  = document.getElementById('artistBio').value.trim();
+  let valid = true;
+
+  if (!name) {
+    document.getElementById('err-name').style.display = 'block';
+    valid = false;
+  } else {
+    document.getElementById('err-name').style.display = 'none';
+  }
+  if (!bio) {
+    document.getElementById('err-bio').style.display = 'block';
+    valid = false;
+  } else {
+    document.getElementById('err-bio').style.display = 'none';
+  }
+  if (!valid) return;
+
+  // ローディング
+  document.getElementById('loadingOverlay').classList.add('active');
+  document.getElementById('submitBtn').disabled = true;
+
+  const payload = {
+    name,
+    bio,
+    style:     document.getElementById('artistStyle').value.trim(),
+    artworkUrl: document.getElementById('artworkUrl').value.trim(),
+    genre:     document.getElementById('artGenre').value,
+    priceMin:  document.getElementById('priceMin').value || '',
+    priceMax:  document.getElementById('priceMax').value || '',
+    twitter:   document.getElementById('twitter').value.trim(),
+    instagram: document.getElementById('instagram').value.trim(),
+    email:     document.getElementById('email').value.trim(),
+    character: document.querySelector('input[name="character"]:checked').value,
+  };
+
+  try {
+    const res = await fetch('/api/artist', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    const data = await res.json();
+
+    if (!res.ok) throw new Error(data.error || '登録に失敗しました');
+
+    // QRコード生成
+    document.getElementById('qrcode').innerHTML = '';
+    new QRCode(document.getElementById('qrcode'), {
+      text: data.url,
+      width: 180,
+      height: 180,
+      colorDark: '#1a1410',
+      colorLight: '#ffffff',
+    });
+
+    document.getElementById('artistUrlDisplay').textContent = data.url;
+    document.getElementById('openPageBtn').onclick = () => window.open(data.url, '_blank');
+
+    document.getElementById('loadingOverlay').classList.remove('active');
+    document.getElementById('modalOverlay').classList.add('active');
+
+  } catch (err) {
+    document.getElementById('loadingOverlay').classList.remove('active');
+    document.getElementById('submitBtn').disabled = false;
+    alert('エラー: ' + err.message);
+  }
+});
+
+// QR印刷
+function printQR() {
+  const qrCanvas = document.querySelector('#qrcode canvas');
+  if (!qrCanvas) { alert('QRコードの生成をお待ちください'); return; }
+  const win = window.open('', '_blank');
+  const name = document.getElementById('artistName').value.trim();
+  win.document.write(`
+    <html><head><title>QRコード - ${name}</title>
+    <style>
+      body { margin: 40px; font-family: serif; text-align: center; }
+      h2 { font-size: 18px; margin-bottom: 8px; }
+      p  { font-size: 12px; color: #888; margin-bottom: 20px; }
+      img { display: block; margin: 0 auto; }
+    </style></head>
+    <body>
+      <h2>${name}</h2>
+      <p>このQRをスキャンするとAR体験が始まります</p>
+      <img src="${qrCanvas.toDataURL()}" width="200">
+    </body></html>
+  `);
+  win.document.close();
+  win.print();
+}
+</script>
+</body>
+</html>
