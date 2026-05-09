@@ -1,0 +1,708 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>ArtAR</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Shippori+Mincho:wght@400;600;800&family=DM+Mono:wght@300;400&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --ink:   #1a1410;
+    --paper: #f5f0e8;
+    --sepia: #c8a96e;
+    --rust:  #b85c38;
+    --smoke: #8a7f72;
+  }
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: #111; color: #fff; font-family: 'Shippori Mincho', serif; overflow: hidden; height: 100dvh; }
+
+  /* --- ローディング画面 --- */
+  #loadingScreen {
+    position: fixed; inset: 0; background: var(--paper); color: var(--ink);
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 16px; z-index: 1000; transition: opacity 0.6s;
+  }
+  #loadingScreen.fade-out { opacity: 0; pointer-events: none; }
+  .loading-logo { font-size: 24px; font-weight: 800; color: var(--rust); letter-spacing: 0.12em; }
+  .loading-artist { font-size: 15px; color: var(--smoke); }
+  .loading-bar-wrap { width: 160px; height: 2px; background: #ddd; border-radius: 2px; overflow: hidden; }
+  .loading-bar { height: 100%; background: var(--rust); width: 0%; transition: width 0.4s; }
+
+  /* --- カメラビュー --- */
+  #cameraView {
+    position: fixed; inset: 0; width: 100%; height: 100%;
+    object-fit: cover; z-index: 0;
+  }
+  #threeCanvas {
+    position: fixed; inset: 0; z-index: 1; pointer-events: none;
+  }
+
+  /* --- 上部アーティスト情報バー --- */
+  #artistBar {
+    position: fixed; top: 0; left: 0; right: 0; z-index: 10;
+    padding: 14px 20px 12px;
+    background: linear-gradient(to bottom, rgba(26,20,16,0.75), transparent);
+    display: flex; align-items: center; gap: 12px;
+    opacity: 0; transition: opacity 0.6s;
+  }
+  #artistBar.visible { opacity: 1; }
+  #artistThumb {
+    width: 40px; height: 40px; border-radius: 50%;
+    object-fit: cover; border: 1.5px solid rgba(200,169,110,0.6);
+    background: #333;
+  }
+  .artist-info-bar { flex: 1; min-width: 0; }
+  .artist-name-bar { font-size: 14px; font-weight: 800; letter-spacing: 0.06em; }
+  .artist-genre-bar { font-family: 'DM Mono', monospace; font-size: 10px; color: rgba(255,255,255,0.55); letter-spacing: 0.12em; margin-top: 2px; }
+  .ar-badge { font-family: 'DM Mono', monospace; font-size: 9px; background: var(--rust); color: #fff; padding: 3px 8px; border-radius: 3px; letter-spacing: 0.1em; }
+
+  /* --- ARプレビューボタン（起動前） --- */
+  #startScreen {
+    position: fixed; inset: 0; z-index: 20;
+    display: flex; flex-direction: column; align-items: center; justify-content: flex-end;
+    padding-bottom: 60px;
+    background: rgba(0,0,0,0.45);
+  }
+  .start-card {
+    background: var(--paper); color: var(--ink);
+    border-radius: 12px; padding: 28px 24px; width: calc(100% - 40px); max-width: 380px;
+    text-align: center;
+  }
+  .start-artwork {
+    width: 100%; max-height: 180px; object-fit: contain;
+    border-radius: 6px; margin-bottom: 16px; display: block;
+    background: #eee;
+  }
+  .start-name { font-size: 20px; font-weight: 800; margin-bottom: 6px; letter-spacing: 0.06em; }
+  .start-genre { font-family: 'DM Mono', monospace; font-size: 10px; color: var(--smoke); letter-spacing: 0.2em; margin-bottom: 10px; }
+  .start-bio { font-size: 13px; color: var(--smoke); line-height: 1.8; margin-bottom: 20px; }
+  .price-tag { font-size: 13px; color: var(--rust); font-weight: 600; margin-bottom: 20px; }
+  .btn-start-ar {
+    width: 100%; background: var(--rust); color: #fff;
+    border: none; border-radius: 6px; padding: 16px;
+    font-family: 'Shippori Mincho', serif; font-size: 16px; font-weight: 800;
+    letter-spacing: 0.15em; cursor: pointer; transition: background 0.2s;
+  }
+  .btn-start-ar:hover { background: #a04e30; }
+
+  /* --- 下部UI（AR起動後） --- */
+  #bottomUI {
+    position: fixed; bottom: 0; left: 0; right: 0; z-index: 10;
+    padding: 0 20px 36px;
+    opacity: 0; transition: opacity 0.6s; pointer-events: none;
+    display: flex; flex-direction: column; gap: 10px;
+  }
+  #bottomUI.visible { opacity: 1; pointer-events: all; }
+
+  /* SNSリンク */
+  .sns-row { display: flex; gap: 8px; justify-content: center; }
+  .sns-btn {
+    background: rgba(255,255,255,0.12); border: 1px solid rgba(255,255,255,0.2);
+    color: #fff; border-radius: 20px; padding: 7px 16px;
+    font-family: 'DM Mono', monospace; font-size: 11px; letter-spacing: 0.08em;
+    cursor: pointer; text-decoration: none; display: inline-block;
+    transition: background 0.2s;
+  }
+  .sns-btn:hover { background: rgba(255,255,255,0.2); }
+
+  /* アクションボタン列 */
+  .action-row { display: flex; gap: 10px; }
+  .btn-chat {
+    flex: 1; background: rgba(26,20,16,0.75); border: 1px solid rgba(200,169,110,0.4);
+    color: #fff; border-radius: 6px; padding: 14px;
+    font-family: 'Shippori Mincho', serif; font-size: 14px; font-weight: 600;
+    letter-spacing: 0.08em; cursor: pointer; transition: background 0.2s;
+  }
+  .btn-chat:hover { background: rgba(26,20,16,0.9); }
+  .btn-nft {
+    flex: 1; background: var(--rust); border: none;
+    color: #fff; border-radius: 6px; padding: 14px;
+    font-family: 'Shippori Mincho', serif; font-size: 14px; font-weight: 800;
+    letter-spacing: 0.08em; cursor: pointer; transition: background 0.2s;
+  }
+  .btn-nft:hover { background: #a04e30; }
+
+  /* --- チャットパネル --- */
+  #chatPanel {
+    position: fixed; bottom: 0; left: 0; right: 0; z-index: 30;
+    background: var(--paper); color: var(--ink);
+    border-radius: 16px 16px 0 0; padding: 20px 20px 36px;
+    transform: translateY(100%); transition: transform 0.4s cubic-bezier(0.32, 0.72, 0, 1);
+    max-height: 70dvh; display: flex; flex-direction: column; gap: 12px;
+  }
+  #chatPanel.open { transform: translateY(0); }
+  .chat-header { display: flex; align-items: center; justify-content: space-between; }
+  .chat-title { font-size: 14px; font-weight: 800; letter-spacing: 0.08em; }
+  .chat-close { background: none; border: none; font-size: 20px; cursor: pointer; color: var(--smoke); line-height: 1; }
+  #chatMessages {
+    flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 12px;
+    padding-right: 4px;
+  }
+  .msg { max-width: 85%; font-size: 13px; line-height: 1.8; padding: 10px 14px; border-radius: 10px; }
+  .msg.user { align-self: flex-end; background: var(--rust); color: #fff; }
+  .msg.ai { align-self: flex-start; background: #ede8df; color: var(--ink); }
+  .msg.ai.loading { color: var(--smoke); font-style: italic; }
+  .chat-input-row { display: flex; gap: 8px; }
+  #chatInput {
+    flex: 1; border: 1px solid #d8d0c4; border-radius: 6px;
+    padding: 10px 12px; font-family: 'Shippori Mincho', serif; font-size: 14px;
+    background: #fff; color: var(--ink); outline: none;
+  }
+  #chatInput:focus { border-color: var(--sepia); }
+  #chatSend {
+    background: var(--rust); color: #fff; border: none; border-radius: 6px;
+    padding: 10px 16px; font-size: 18px; cursor: pointer;
+  }
+
+  /* --- 購入証明モーダル --- */
+  #nftModal {
+    display: none; position: fixed; inset: 0; z-index: 40;
+    background: rgba(26,20,16,0.7); align-items: flex-end; justify-content: center;
+    padding: 0;
+  }
+  #nftModal.open { display: flex; }
+  .nft-card {
+    background: var(--paper); color: var(--ink);
+    border-radius: 16px 16px 0 0; padding: 28px 24px 48px;
+    width: 100%; max-width: 480px;
+  }
+  .nft-card h2 { font-size: 18px; font-weight: 800; margin-bottom: 8px; letter-spacing: 0.06em; }
+  .nft-card p { font-size: 13px; color: var(--smoke); line-height: 1.8; margin-bottom: 20px; }
+  .nft-card .btn-primary {
+    width: 100%; background: var(--rust); color: #fff; border: none;
+    border-radius: 6px; padding: 16px;
+    font-family: 'Shippori Mincho', serif; font-size: 15px; font-weight: 800;
+    letter-spacing: 0.1em; cursor: pointer; margin-bottom: 10px;
+    display: block;
+  }
+  .nft-card .btn-free {
+    width: 100%; background: transparent; color: var(--smoke);
+    border: 1px solid #d8d0c4; border-radius: 6px; padding: 13px;
+    font-family: 'Shippori Mincho', serif; font-size: 13px; cursor: pointer;
+    display: block;
+  }
+  .nft-card .btn-cancel {
+    width: 100%; background: none; border: none; color: var(--smoke);
+    font-size: 13px; cursor: pointer; margin-top: 10px; padding: 8px;
+  }
+
+  /* エラー画面 */
+  #errorScreen {
+    display: none; position: fixed; inset: 0; z-index: 999;
+    background: var(--paper); color: var(--ink);
+    align-items: center; justify-content: center; flex-direction: column; gap: 16px;
+    text-align: center; padding: 40px;
+  }
+  #errorScreen.show { display: flex; }
+  #errorScreen h2 { font-size: 20px; font-weight: 800; color: var(--rust); }
+  #errorScreen p { font-size: 14px; color: var(--smoke); line-height: 1.8; }
+</style>
+</head>
+<body>
+
+<!-- ローディング -->
+<div id="loadingScreen">
+  <div class="loading-logo">ArtAR</div>
+  <div class="loading-artist" id="loadingArtistName">読み込み中...</div>
+  <div class="loading-bar-wrap"><div class="loading-bar" id="loadingBar"></div></div>
+</div>
+
+<!-- エラー -->
+<div id="errorScreen">
+  <h2>ページが見つかりません</h2>
+  <p>このURLは無効か、期限切れの可能性があります。<br>作家に直接お問い合わせください。</p>
+</div>
+
+<!-- カメラ -->
+<video id="cameraView" autoplay muted playsinline></video>
+<canvas id="threeCanvas"></canvas>
+
+<!-- アーティスト情報バー -->
+<div id="artistBar">
+  <img id="artistThumb" src="" alt="">
+  <div class="artist-info-bar">
+    <div class="artist-name-bar" id="barName"></div>
+    <div class="artist-genre-bar" id="barGenre"></div>
+  </div>
+  <span class="ar-badge">AR LIVE</span>
+  <span class="lang-badge" id="langBadge" style="font-family:'DM Mono',monospace;font-size:9px;background:rgba(255,255,255,0.15);color:#fff;padding:3px 8px;border-radius:3px;letter-spacing:0.1em;display:none;"></span>
+</div>
+
+<!-- スタート画面 -->
+<div id="startScreen">
+  <div class="start-card">
+    <img class="start-artwork" id="startArtwork" src="" alt="作品">
+    <div class="start-name" id="startName"></div>
+    <div class="start-genre" id="startGenre"></div>
+    <div class="start-bio" id="startBio"></div>
+    <div class="price-tag" id="startPrice"></div>
+    <button class="btn-start-ar" id="btnStartAR">✦ AR体験をはじめる</button>
+  </div>
+</div>
+
+<!-- 下部UI -->
+<div id="bottomUI">
+  <div class="sns-row" id="snsRow"></div>
+  <div class="action-row">
+    <button class="btn-chat" id="btnChat">💬 作家に聞く</button>
+    <button class="btn-nft" id="btnNFT">作品を購入する</button>
+  </div>
+</div>
+
+<!-- チャットパネル -->
+<div id="chatPanel">
+  <div class="chat-header">
+    <div class="chat-title" id="chatTitle">作家に聞く</div>
+    <button class="chat-close" id="chatClose">×</button>
+  </div>
+  <div id="chatMessages"></div>
+  <div class="chat-input-row">
+    <input type="text" id="chatInput" placeholder="素材や制作について聞いてみよう">
+    <button id="chatSend">→</button>
+  </div>
+</div>
+
+<!-- 購入証明モーダル -->
+<div id="nftModal">
+  <div class="nft-card">
+    <h2>購入証明を受け取る</h2>
+    <p id="nftDesc">この作品の購入証明NFTをウォレットに発行します。作家名・作品情報がオンチェーンに記録されます。</p>
+    <button class="btn-primary" id="btnMint">購入証明NFTを発行する（無料）</button>
+    <button class="btn-free" id="btnFreeProof">Stripe決済と連動して発行する</button>
+    <button class="btn-cancel" onclick="document.getElementById('nftModal').classList.remove('open')">キャンセル</button>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/DRACOLoader.js"></script>
+
+<script>
+
+// === アーティストIDをURLから取得 ===
+const pathParts = location.pathname.split('/');
+const artistId = pathParts[pathParts.length - 1];
+
+let artistData = null;
+let arRunning = false;
+
+// === ローディングバー ===
+let loadProgress = 0;
+function updateLoadBar(pct) {
+  loadProgress = pct;
+  document.getElementById('loadingBar').style.width = pct + '%';
+}
+
+// === アーティスト情報取得 ===
+async function fetchArtist() {
+  updateLoadBar(20);
+  try {
+    const res = await fetch(`/api/artist?id=${artistId}`);
+    if (!res.ok) throw new Error('not found');
+    const data = await res.json();
+    artistData = data.artist;
+    updateLoadBar(60);
+    populateUI();
+    updateLoadBar(100);
+    setTimeout(() => {
+      document.getElementById('loadingScreen').classList.add('fade-out');
+    }, 400);
+  } catch {
+    document.getElementById('loadingScreen').classList.add('fade-out');
+    document.getElementById('errorScreen').classList.add('show');
+  }
+}
+
+// === UIに情報を注入 ===
+function populateUI() {
+  const a = artistData;
+  document.title = `${a.name} — ArtAR`;
+  document.getElementById('loadingArtistName').textContent = a.name;
+
+  // スタート画面
+  document.getElementById('startName').textContent = a.name;
+  document.getElementById('startGenre').textContent = a.genre || 'ARTIST';
+  document.getElementById('startBio').textContent = a.bio;
+  const price = a.priceMin || a.priceMax
+    ? `¥${a.priceMin || '?'}〜${a.priceMax || '?'}`
+    : '';
+  document.getElementById('startPrice').textContent = price;
+  if (a.artworkUrl) {
+    document.getElementById('startArtwork').src = a.artworkUrl;
+  }
+
+  // バー
+  document.getElementById('barName').textContent = a.name;
+  document.getElementById('barGenre').textContent = a.genre || 'ARTIST';
+  if (a.artworkUrl) document.getElementById('artistThumb').src = a.artworkUrl;
+
+  // チャットタイトル
+  document.getElementById('chatTitle').textContent = `${a.name}に聞く`;
+
+  // SNS
+  const snsRow = document.getElementById('snsRow');
+  if (a.twitter) {
+    const btn = document.createElement('a');
+    btn.className = 'sns-btn';
+    btn.href = `https://twitter.com/${a.twitter}`;
+    btn.target = '_blank';
+    btn.textContent = '𝕏 @' + a.twitter;
+    snsRow.appendChild(btn);
+  }
+  if (a.instagram) {
+    const btn = document.createElement('a');
+    btn.className = 'sns-btn';
+    btn.href = `https://instagram.com/${a.instagram}`;
+    btn.target = '_blank';
+    btn.textContent = '⊕ ' + a.instagram;
+    snsRow.appendChild(btn);
+  }
+}
+
+// === キャラクター設定 ===
+const CHAR_CONFIG = {
+  utsusemi: { glb: '/utsusemi.glb', scale: 1.0, rotY: -Math.PI/2, rotX: 0, pos: [0, -0.8, 0.3], particle: 0xf0c8c8, particleSize: 0.015 },
+  yugao:    { glb: '/yugao.glb',    scale: 1.0, rotY: -Math.PI/2, rotX: 0, pos: [0, -0.8, 0.3], particle: 0xffd4e8, particleSize: 0.015 },
+  ohma:     { glb: '/dr_ohma.glb',  scale: 1.0, rotY: 0,         rotX: 0, pos: [0, -0.8, 0.3], particle: 0x88ccff, particleSize: 0.018 },
+  aciel:    { glb: '/aciel.glb',    scale: 1.0, rotY: 0,         rotX: 0, pos: [0, -0.8, 0.3], particle: 0xff88cc, particleSize: 0.018 },
+};
+
+// === Three.js AR シーン ===
+let renderer, scene, camera, artPlane, charModel, animFrame, mixer;
+
+// オーラエフェクト用
+let auraRings = [];      // 輪郭リング（複数層）
+let auraOrbs = [];       // 浮遊光球
+let auraGlow = null;     // 足元グロー
+
+function buildAura(root, cfg) {
+  const col = new THREE.Color(cfg.particle);
+
+  // ① 輪郭リング（3層・楕円形でキャラを包む）
+  const ringDefs = [
+    { rx: 0.28, ry: 0.55, z: 0.0,  segs: 64, opBase: 0.55, speed: 0.008, phase: 0 },
+    { rx: 0.22, ry: 0.48, z: 0.05, segs: 48, opBase: 0.35, speed: -0.006, phase: 1.2 },
+    { rx: 0.32, ry: 0.62, z: -0.05,segs: 64, opBase: 0.25, speed: 0.005, phase: 2.5 },
+  ];
+  ringDefs.forEach((def) => {
+    const pts = [];
+    for (let i = 0; i <= def.segs; i++) {
+      const a = (i / def.segs) * Math.PI * 2;
+      pts.push(new THREE.Vector3(Math.cos(a) * def.rx, Math.sin(a) * def.ry, def.z));
+    }
+    const geo = new THREE.BufferGeometry().setFromPoints(pts);
+    const mat = new THREE.LineBasicMaterial({
+      color: col, transparent: true, opacity: def.opBase, depthWrite: false, blending: THREE.AdditiveBlending,
+    });
+    const ring = new THREE.Line(geo, mat);
+    ring.position.set(0, 0.3, 0); // キャラ重心あたり
+    root.add(ring);
+    auraRings.push({ mesh: ring, mat, opBase: def.opBase, speed: def.speed, phase: def.phase });
+  });
+
+  // ② 浮遊光球（キャラ周囲をゆっくり公転）
+  const orbCount = 8;
+  for (let i = 0; i < orbCount; i++) {
+    const geo = new THREE.SphereGeometry(0.012 + Math.random() * 0.010, 8, 8);
+    const mat = new THREE.MeshBasicMaterial({
+      color: col, transparent: true, opacity: 0, depthWrite: false, blending: THREE.AdditiveBlending,
+    });
+    const orb = new THREE.Mesh(geo, mat);
+    root.add(orb);
+    auraOrbs.push({
+      mesh: orb, mat,
+      radius:  0.30 + Math.random() * 0.15,
+      height:  -0.1 + Math.random() * 0.9,
+      speed:   (0.3 + Math.random() * 0.3) * (Math.random() < 0.5 ? 1 : -1),
+      phase:   (i / orbCount) * Math.PI * 2,
+      opPeak:  0.7 + Math.random() * 0.25,
+      lifePh:  Math.random() * Math.PI * 2,
+      lifeSpd: 0.6 + Math.random() * 0.5,
+    });
+  }
+
+  // ③ 足元グロー（薄い円盤）
+  const glowGeo = new THREE.CircleGeometry(0.35, 48);
+  const glowMat = new THREE.MeshBasicMaterial({
+    color: col, transparent: true, opacity: 0.18, depthWrite: false,
+    blending: THREE.AdditiveBlending, side: THREE.DoubleSide,
+  });
+  auraGlow = new THREE.Mesh(glowGeo, glowMat);
+  auraGlow.rotation.x = -Math.PI / 2;
+  auraGlow.position.set(0, -0.78, 0);
+  root.add(auraGlow);
+}
+
+function initThreeAR() {
+  const canvas = document.getElementById('threeCanvas');
+  renderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: true });
+  renderer.setPixelRatio(devicePixelRatio);
+  renderer.setSize(window.innerWidth, window.innerHeight);
+  renderer.outputEncoding = THREE.sRGBEncoding;
+  renderer.toneMapping = THREE.ACESFilmicToneMapping;
+  renderer.toneMappingExposure = 1.0;
+
+  scene = new THREE.Scene();
+  camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.01, 100);
+  camera.position.set(0, 0, 2.8);
+
+  // ライト
+  scene.add(new THREE.AmbientLight(0xffffff, 1.0));
+  const dir = new THREE.DirectionalLight(0xffffff, 0.8);
+  dir.position.set(1, 3, 2);
+  scene.add(dir);
+  const dir2 = new THREE.DirectionalLight(0xffffff, 0.3);
+  dir2.position.set(-1, 1, -2);
+  scene.add(dir2);
+
+  // 作品画像：センター・奥に背景として配置
+  if (artistData?.artworkUrl) {
+    const loader = new THREE.TextureLoader();
+    loader.load(artistData.artworkUrl, (tex) => {
+      const aspect = tex.image.width / tex.image.height;
+      const h = 1.8;
+      const w = h * aspect;
+      const geo = new THREE.PlaneGeometry(w, h);
+      const mat = new THREE.MeshBasicMaterial({ map: tex, transparent: true, opacity: 0.55, side: THREE.DoubleSide });
+      artPlane = new THREE.Mesh(geo, mat);
+      artPlane.position.set(0, 0.1, -0.6);
+      scene.add(artPlane);
+    });
+  } else {
+    const geo = new THREE.PlaneGeometry(1.4, 1.8);
+    const mat = new THREE.MeshBasicMaterial({ color: 0xc8a96e, transparent: true, opacity: 0.15, side: THREE.DoubleSide });
+    artPlane = new THREE.Mesh(geo, mat);
+    artPlane.position.set(0, 0.1, -0.6);
+    scene.add(artPlane);
+  }
+
+  // キャラクターGLBを読み込む
+  const charKey = artistData?.character || 'utsusemi';
+  const charCfg = CHAR_CONFIG[charKey] || CHAR_CONFIG.utsusemi;
+
+  const dracoLoader = new THREE.DRACOLoader();
+  dracoLoader.setDecoderPath('https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/libs/draco/');
+  const gltfLoader = new THREE.GLTFLoader();
+  gltfLoader.setDRACOLoader(dracoLoader);
+  // root Group（viewer_plane.html と同じ構造）
+  const root = new THREE.Group();
+  scene.add(root);
+
+  gltfLoader.load(charCfg.glb, (gltf) => {
+    const modelScene = gltf.scene;
+    // モデルの初期向き補正（アニメーションミキサーに上書きされない外側 root で管理）
+    modelScene.rotation.y = charCfg.rotY ?? 0;
+    root.add(modelScene);
+    root.scale.setScalar(charCfg.scale);
+    root.position.set(...charCfg.pos);
+    charModel = root;
+
+    // アニメーションがあれば全て再生
+    if (gltf.animations && gltf.animations.length > 0) {
+      mixer = new THREE.AnimationMixer(modelScene);
+      gltf.animations.forEach((clip) => mixer.clipAction(clip).play());
+    }
+  }, undefined, (err) => {
+    console.warn('[ArtAR] GLB読み込み失敗、フォールバック表示:', err);
+    // GLB読み込み失敗時はシンプルな光球でフォールバック
+    const geo = new THREE.SphereGeometry(0.15, 16, 16);
+    const mat = new THREE.MeshBasicMaterial({ color: charCfg.particle, transparent: true, opacity: 0.7 });
+    const fallback = new THREE.Mesh(geo, mat);
+    fallback.position.set(...charCfg.pos);
+    fallback.position.y += 0.5;
+    root.add(fallback);
+  });
+
+  // オーラ・輪郭発光エフェクト
+  buildAura(root, charCfg);
+
+  window.addEventListener('resize', () => {
+    camera.aspect = window.innerWidth / window.innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(window.innerWidth, window.innerHeight);
+  });
+
+  animate();
+}
+
+const clock = new THREE.Clock();
+
+function animate() {
+  animFrame = requestAnimationFrame(animate);
+  const t = performance.now() * 0.001;
+  const delta = clock.getDelta();
+
+  if (artPlane) {
+    artPlane.rotation.y = Math.sin(t * 0.3) * 0.03;
+    artPlane.position.y = 0.1 + Math.sin(t * 0.5) * 0.02;
+  }
+  // charModel(root)の rotation は固定（毎フレーム上書きしない）
+
+  // オーラリング：呼吸するように opacity を揺らす
+  auraRings.forEach((r) => {
+    r.mat.opacity = r.opBase * (0.6 + 0.4 * Math.sin(t * 1.8 + r.phase));
+    r.mesh.rotation.z += r.speed;
+  });
+
+  // 浮遊光球：公転 + 明滅
+  auraOrbs.forEach((o) => {
+    const angle = t * o.speed + o.phase;
+    o.mesh.position.set(
+      Math.cos(angle) * o.radius,
+      o.height + Math.sin(t * 0.7 + o.lifePh) * 0.08,
+      Math.sin(angle) * o.radius * 0.4
+    );
+    o.mat.opacity = o.opPeak * (0.5 + 0.5 * Math.sin(t * o.lifeSpd + o.lifePh));
+  });
+
+  // 足元グロー：ゆっくり明滅
+  if (auraGlow) {
+    auraGlow.material.opacity = 0.10 + 0.08 * Math.sin(t * 1.2);
+  }
+  if (mixer) {
+    mixer.update(delta);
+  }
+  renderer.render(scene, camera);
+}
+
+// === カメラ起動 ===
+async function startCamera() {
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } }
+    });
+    document.getElementById('cameraView').srcObject = stream;
+  } catch {
+    // カメラ不可でもThree.jsシーンは表示
+    document.getElementById('cameraView').style.display = 'none';
+  }
+}
+
+// === AR開始 ===
+document.getElementById('btnStartAR').addEventListener('click', async () => {
+  document.getElementById('startScreen').style.display = 'none';
+  document.getElementById('artistBar').classList.add('visible');
+  document.getElementById('bottomUI').classList.add('visible');
+  if (!arRunning) {
+    arRunning = true;
+    await startCamera();
+    initThreeAR();
+  }
+});
+
+// === チャット ===
+const chatMessages = document.getElementById('chatMessages');
+let chatHistory = [];
+
+// 言語検出
+const visitorLang = navigator.language || 'ja';
+const langBase = visitorLang.toLowerCase().split('-')[0];
+const LANG_BADGE = { ja:'日本語', en:'EN', zh:'中文', ko:'한국어', fr:'FR', de:'DE', es:'ES', it:'IT', th:'TH' };
+const GREETING = {
+  ja: `こんにちは。${artistData?.name || ''}です。作品についてなんでも聞いてください。`,
+  en: `Hi! I'm ${artistData?.name || 'the artist'}. Feel free to ask me anything about my work!`,
+  zh: `你好！我是${artistData?.name || ''}。欢迎询问关于我作品的任何问题！`,
+  ko: `안녕하세요! ${artistData?.name || ''}입니다. 작품에 대해 무엇이든 물어보세요!`,
+  fr: `Bonjour ! Je suis ${artistData?.name || ''}. N'hésitez pas à me poser des questions sur mon travail !`,
+  de: `Hallo! Ich bin ${artistData?.name || ''}. Fragen Sie mich gerne alles über meine Arbeit!`,
+  es: `¡Hola! Soy ${artistData?.name || ''}. ¡Pregúntame lo que quieras sobre mi trabajo!`,
+  it: `Ciao! Sono ${artistData?.name || ''}. Chiedimi pure tutto sul mio lavoro!`,
+  th: `สวัสดี! ฉัน${artistData?.name || ''}ค่ะ ถามเกี่ยวกับงานของฉันได้เลยนะคะ`,
+};
+
+const badgeEl = document.getElementById('langBadge');
+if (badgeEl && langBase !== 'ja') {
+  badgeEl.textContent = LANG_BADGE[langBase] || visitorLang.toUpperCase();
+  badgeEl.style.display = 'inline-block';
+}
+
+document.getElementById('btnChat').addEventListener('click', () => {
+  document.getElementById('chatPanel').classList.add('open');
+  if (chatMessages.children.length === 0) {
+    const greeting = GREETING[langBase] || GREETING.en;
+    addAIMessage(greeting);
+  }
+});
+document.getElementById('chatClose').addEventListener('click', () => {
+  document.getElementById('chatPanel').classList.remove('open');
+});
+
+function addAIMessage(text, loading = false) {
+  const div = document.createElement('div');
+  div.className = 'msg ai' + (loading ? ' loading' : '');
+  div.textContent = text;
+  chatMessages.appendChild(div);
+  chatMessages.scrollTop = chatMessages.scrollHeight;
+  return div;
+}
+function addUserMessage(text) {
+  const div = document.createElement('div');
+  div.className = 'msg user';
+  div.textContent = text;
+  chatMessages.appendChild(div);
+  chatMessages.scrollTop = chatMessages.scrollHeight;
+}
+
+async function sendChat() {
+  const input = document.getElementById('chatInput');
+  const text = input.value.trim();
+  if (!text) return;
+  input.value = '';
+  addUserMessage(text);
+  chatHistory.push({ role: 'user', content: text });
+
+  const loadingMsg = addAIMessage('...', true);
+
+  try {
+    const res = await fetch('/api/chat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        messages: chatHistory.slice(-10),
+        visitorLang: navigator.language || 'ja',
+        artistData: artistData ? {
+          name: artistData.name,
+          bio: artistData.bio,
+          style: artistData.style,
+          genre: artistData.genre,
+          character: artistData.character,
+          priceMin: artistData.priceMin,
+          priceMax: artistData.priceMax,
+        } : null,
+      }),
+    });
+    const data = await res.json();
+    const reply = data.reply || 'うまく答えられませんでした。';
+    loadingMsg.textContent = reply;
+    loadingMsg.classList.remove('loading');
+    chatHistory.push({ role: 'assistant', content: reply });
+  } catch {
+    loadingMsg.textContent = 'エラーが発生しました。もう一度お試しください。';
+    loadingMsg.classList.remove('loading');
+  }
+}
+
+document.getElementById('chatSend').addEventListener('click', sendChat);
+document.getElementById('chatInput').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') sendChat();
+});
+
+// === 購入証明NFTモーダル ===
+document.getElementById('btnNFT').addEventListener('click', () => {
+  document.getElementById('nftModal').classList.add('open');
+});
+document.getElementById('btnMint').addEventListener('click', async () => {
+  // Phase 3で実装: mint-nft.js呼び出し
+  alert('Phase 3で実装予定: NFT mint');
+});
+document.getElementById('btnFreeProof').addEventListener('click', () => {
+  // Phase 3で実装: Stripe連動
+  alert('Phase 3で実装予定: Stripe決済');
+});
+
+// === 初期化 ===
+fetchArtist();
+</script>
+</body>
+</html>
