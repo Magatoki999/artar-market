@@ -1,6 +1,6 @@
 // api/upload.js
 // Vercel Blob Client Upload 用トークン発行
-// GET /api/upload?filename=xxx.glb → { token, url } でブラウザが直接BlobにPUT
+// GET /api/upload?filename=xxx.glb → { clientToken, pathname, uploadUrl }
 
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -8,62 +8,63 @@ export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
   if (req.method === 'OPTIONS') return res.status(200).end();
 
-  // POST = handleUpload コールバック（Vercel Blobからの完了通知）
+  // POST = Vercel Blobからの完了コールバック（無視してOK返す）
   if (req.method === 'POST') {
-    try {
-      const { handleUpload } = await import('@vercel/blob/client');
-      const body = req.body;
-      const jsonResponse = await handleUpload({
-        body,
-        request: {
-          headers: { get: (k) => req.headers[k.toLowerCase()] ?? null },
-          url: `https://${req.headers['x-forwarded-host'] || req.headers.host}/api/upload`,
-        },
-        onBeforeGenerateToken: async (pathname) => ({
-          allowedContentTypes: ['model/gltf-binary', 'application/octet-stream'],
-          maximumSizeInBytes: 50 * 1024 * 1024,
-          addRandomSuffix: false,
-        }),
-        onUploadCompleted: async ({ blob }) => {
-          console.log('[upload] 完了:', blob.url);
-        },
-      });
-      return res.status(200).json(jsonResponse);
-    } catch (err) {
-      console.error('[upload POST] エラー:', err);
-      return res.status(400).json({ error: err.message });
-    }
+    return res.status(200).json({ ok: true });
   }
 
-  // GET = クライアントトークンを発行してブラウザに返す
-  if (req.method === 'GET') {
-    const { filename } = req.query;
-    if (!filename || !filename.toLowerCase().endsWith('.glb')) {
-      return res.status(400).json({ error: '.glbファイル名を指定してください' });
-    }
+  if (req.method !== 'GET') {
+    return res.status(405).json({ error: 'Method not allowed' });
+  }
 
-    try {
-      const { generateClientTokenFromReadWriteToken } = await import('@vercel/blob/client');
-      const host = req.headers['x-forwarded-host'] || req.headers.host;
-      const safeName = `glb/${Date.now()}-${filename.replace(/[^a-zA-Z0-9._-]/g, '_')}`;
+  const { filename } = req.query;
+  if (!filename || !filename.toLowerCase().endsWith('.glb')) {
+    return res.status(400).json({ error: '.glbファイル名を指定してください' });
+  }
 
-      const clientToken = await generateClientTokenFromReadWriteToken({
-        token: process.env.BLOB_READ_WRITE_TOKEN,
+  const token = process.env.BLOB_READ_WRITE_TOKEN;
+  if (!token) {
+    return res.status(500).json({ error: 'BLOB_READ_WRITE_TOKEN が未設定です' });
+  }
+
+  try {
+    const safeName = `glb/${Date.now()}-${filename.replace(/[^a-zA-Z0-9._-]/g, '_')}`;
+    const host = req.headers['x-forwarded-host'] || req.headers.host;
+
+    // Vercel Blob API でクライアントトークンを発行
+    const apiRes = await fetch('https://blob.vercel-storage.com/upload/client-token', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`,
+        'x-api-version': '7',
+      },
+      body: JSON.stringify({
         pathname: safeName,
-        onUploadCompleted: {
-          callbackUrl: `https://${host}/api/upload`,
-        },
+        callbackUrl: `https://${host}/api/upload`,
+        multipart: false,
         maximumSizeInBytes: 50 * 1024 * 1024,
         allowedContentTypes: ['model/gltf-binary', 'application/octet-stream'],
-      });
+      }),
+    });
 
-      return res.status(200).json({ clientToken, pathname: safeName });
-    } catch (err) {
-      console.error('[upload GET] エラー:', err);
-      return res.status(500).json({ error: err.message });
+    if (!apiRes.ok) {
+      const errText = await apiRes.text();
+      console.error('[upload] Blob API エラー:', apiRes.status, errText);
+      return res.status(500).json({ error: `Blob API エラー: ${apiRes.status} ${errText}` });
     }
-  }
 
-  return res.status(405).json({ error: 'Method not allowed' });
+    const data = await apiRes.json();
+    console.log('[upload] トークン発行成功:', safeName);
+    return res.status(200).json({
+      clientToken: data.clientToken || data.token,
+      pathname: safeName,
+      uploadUrl: data.url || `https://blob.vercel-storage.com/${safeName}`,
+    });
+
+  } catch (err) {
+    console.error('[upload] エラー:', err);
+    return res.status(500).json({ error: err.message });
+  }
 }
 
