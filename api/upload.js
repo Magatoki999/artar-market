@@ -67,10 +67,7 @@ export default async function handler(req, res) {
 
     const signedUrl = `${url.origin}/${R2_BUCKET}/${safeName}?${queryParams}&X-Amz-Signature=${signature}`;
 
-    // パブリックURLはR2のpub-xxxドメイン経由
-    const endpoint   = process.env.R2_ENDPOINT;
-    const accountId  = endpoint.match(/([a-f0-9]+)\.r2\.cloudflarestorage\.com/)?.[1] || '';
-    const publicUrl  = `https://pub-${accountId}.r2.dev/${safeName}`;
+    const publicUrl = `${process.env.R2_PUBLIC_URL}/${safeName}`;
 
     return res.status(200).json({ uploadUrl: signedUrl, publicUrl });
 
