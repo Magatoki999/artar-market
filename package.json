@@ -1,24 +1,11 @@
 {
   "name": "artar-market",
   "version": "1.0.0",
-  "description": "��#\u0000 \u0000a\u0000r\u0000t\u0000a\u0000r\u0000-\u0000m\u0000a\u0000r\u0000k\u0000e\u0000t\u0000\r\u0000 \u0000",
-  "main": "index.js",
-  "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
-  },
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/Magatoki999/artar-market.git"
-  },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "type": "commonjs",
-  "bugs": {
-    "url": "https://github.com/Magatoki999/artar-market/issues"
-  },
-  "homepage": "https://github.com/Magatoki999/artar-market#readme",
+  "type": "module",
   "dependencies": {
-    "@vercel/blob": "^2.3.3"
+    "@vercel/blob": "^0.27.1",
+    "ethers": "^6.13.0",
+    "resend": "^4.0.0",
+    "stripe": "^17.0.0"
   }
 }
