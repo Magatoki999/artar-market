@@ -70,6 +70,7 @@ export default async function handler(req, res) {
         style      = '',
         artworkUrl = '',
         glbUrl     = '',
+        nftImageUrl = '',
         genre      = '',
         priceMin   = '',
         priceMax   = '',
@@ -86,7 +87,7 @@ export default async function handler(req, res) {
       const id = Math.random().toString(36).slice(2, 10);
 
       const artistData = {
-        id, name, bio, style, artworkUrl, glbUrl, genre,
+        id, name, bio, style, artworkUrl, glbUrl, nftImageUrl, genre,
         priceMin, priceMax, twitter, instagram, email, character,
         createdAt: new Date().toISOString(),
       };

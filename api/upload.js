@@ -1,7 +1,13 @@
 // api/upload.js
 // Cloudflare R2 Pre-signed URL発行
-// GET /api/upload?filename=xxx.glb → { uploadUrl, publicUrl }
-// ブラウザがそのまま uploadUrl に PUT すればR2に直接アップロードされる
+// GET /api/upload?filename=xxx.glb  → GLBアップロード用
+// GET /api/upload?filename=xxx.jpg  → NFT画像アップロード用
+
+const IMAGE_EXTS = ['.jpg', '.jpeg', '.png', '.webp', '.gif'];
+const IMAGE_TYPES = {
+  '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg',
+  '.png': 'image/png', '.webp': 'image/webp', '.gif': 'image/gif',
+};
 
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -11,8 +17,15 @@ export default async function handler(req, res) {
   if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' });
 
   const { filename } = req.query;
-  if (!filename || !filename.toLowerCase().endsWith('.glb')) {
-    return res.status(400).json({ error: '.glbファイル名を指定してください' });
+  if (!filename) return res.status(400).json({ error: 'filenameを指定してください' });
+
+  const lower = filename.toLowerCase();
+  const isGlb   = lower.endsWith('.glb');
+  const ext     = '.' + lower.split('.').pop();
+  const isImage = IMAGE_EXTS.includes(ext);
+
+  if (!isGlb && !isImage) {
+    return res.status(400).json({ error: '.glbまたは画像ファイルのみアップロードできます' });
   }
 
   const { R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, R2_ENDPOINT, R2_BUCKET } = process.env;
@@ -21,17 +34,17 @@ export default async function handler(req, res) {
   }
 
   try {
-    const safeName = `glb/${Date.now()}-${filename.replace(/[^a-zA-Z0-9._-]/g, '_')}`;
-    const expires  = Math.floor(Date.now() / 1000) + 60 * 15; // 15分有効
+    const folder    = isGlb ? 'glb' : 'nft';
+    const safeName  = `${folder}/${Date.now()}-${filename.replace(/[^a-zA-Z0-9._-]/g, '_')}`;
+    const contentType = isGlb ? 'model/gltf-binary' : (IMAGE_TYPES[ext] || 'application/octet-stream');
 
-    // AWS Signature V4 で Pre-signed URL を生成
-    const url    = new URL(`${R2_ENDPOINT}/${R2_BUCKET}/${safeName}`);
-    const host   = url.host;
-    const region = 'auto';
+    const url     = new URL(`${R2_ENDPOINT}/${R2_BUCKET}/${safeName}`);
+    const host    = url.host;
+    const region  = 'auto';
     const service = 's3';
 
-    const now        = new Date();
-    const dateStr    = now.toISOString().slice(0, 10).replace(/-/g, '');
+    const now         = new Date();
+    const dateStr     = now.toISOString().slice(0, 10).replace(/-/g, '');
     const datetimeStr = now.toISOString().replace(/[-:]/g, '').slice(0, 15) + 'Z';
 
     const credentialScope = `${dateStr}/${region}/${service}/aws4_request`;
@@ -61,15 +74,13 @@ export default async function handler(req, res) {
       await sha256hex(canonicalRequest),
     ].join('\n');
 
-    // HMAC-SHA256 署名
     const signingKey = await getSigningKey(R2_SECRET_ACCESS_KEY, dateStr, region, service);
     const signature  = await hmacHex(signingKey, stringToSign);
 
     const signedUrl = `${url.origin}/${R2_BUCKET}/${safeName}?${queryParams}&X-Amz-Signature=${signature}`;
-
     const publicUrl = `${process.env.R2_PUBLIC_URL}/${safeName}`;
 
-    return res.status(200).json({ uploadUrl: signedUrl, publicUrl });
+    return res.status(200).json({ uploadUrl: signedUrl, publicUrl, contentType });
 
   } catch (err) {
     console.error('[upload] エラー:', err);

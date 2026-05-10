@@ -84,8 +84,13 @@ async function mintNFT(recipientAddress, metadata) {
 }
 
 // ── 購入者へメール ───────────────────────────────────────────────────
-async function sendBuyerEmail({ email, artistName, artworkName, amount, certId, txHash }) {
+async function sendBuyerEmail({ email, artistName, artworkName, amount, certId, txHash, nftImageUrl }) {
   const resend = new Resend(process.env.RESEND_API_KEY);
+  const nftImageHtml = nftImageUrl
+    ? `<div style="text-align:center;margin:20px 0;"><img src="${nftImageUrl}" alt="NFT" style="max-width:280px;width:100%;border:2px solid rgba(212,175,55,0.5);border-radius:12px;"></div>`
+    : '';
+  const polygonUrl = `https://polygonscan.com/tx/${txHash}`;
+
   await resend.emails.send({
     from:    process.env.RESEND_FROM || 'noreply@magatokilab.com',
     to:      email,
@@ -95,10 +100,11 @@ async function sendBuyerEmail({ email, artistName, artworkName, amount, certId, 
 <body style="background:#0d0a04;color:#e8e0d0;font-family:'Yu Mincho',serif;padding:32px 16px;margin:0;">
   <div style="max-width:480px;margin:0 auto;">
     <p style="font-size:22px;color:#c8a96e;letter-spacing:4px;margin-bottom:4px;">ArtAR</p>
-    <p style="font-size:12px;color:rgba(255,255,255,0.4);letter-spacing:2px;margin-bottom:32px;">Purchase Certificate NFT</p>
+    <p style="font-size:12px;color:rgba(255,255,255,0.4);letter-spacing:2px;margin-bottom:24px;">Purchase Certificate NFT</p>
+    ${nftImageHtml}
     <p style="font-size:14px;line-height:2;color:rgba(255,255,255,0.75);">
       このたびはご購入いただき、誠にありがとうございます。<br>
-      購入証明NFTを発行いたしました。
+      購入証明NFTをブロックチェーンに記録しました。
     </p>
     <div style="margin:24px 0;background:rgba(255,255,255,0.04);border:1px solid rgba(200,169,110,0.3);border-radius:12px;padding:20px;">
       <table style="width:100%;font-size:13px;border-collapse:collapse;">
@@ -106,9 +112,9 @@ async function sendBuyerEmail({ email, artistName, artworkName, amount, certId, 
         <tr><td style="color:rgba(255,255,255,0.4);padding:6px 0;">アーティスト</td><td style="color:#fff;">${artistName}</td></tr>
         <tr><td style="color:rgba(255,255,255,0.4);padding:6px 0;">お支払い金額</td><td style="color:#fff;">¥${Number(amount).toLocaleString()}</td></tr>
         <tr><td style="color:rgba(255,255,255,0.4);padding:6px 0;">証明ID</td><td style="color:#c8a96e;font-family:monospace;font-size:11px;">${certId}</td></tr>
-        <tr><td style="color:rgba(255,255,255,0.4);padding:6px 0;">TX Hash</td><td style="color:#c8a96e;font-family:monospace;font-size:10px;word-break:break-all;">${txHash}</td></tr>
       </table>
     </div>
+    <a href="${polygonUrl}" style="display:block;text-align:center;padding:14px;background:linear-gradient(135deg,#b8962e,#D4AF37);color:#1a1208;font-weight:bold;font-size:14px;letter-spacing:2px;border-radius:10px;text-decoration:none;margin-bottom:24px;">ブロックチェーンで確認する →</a>
     <p style="font-size:11px;color:rgba(255,255,255,0.2);margin-top:24px;">MAGATOKI Laboratory / ArtAR</p>
   </div>
 </body></html>`.trim(),
@@ -161,7 +167,7 @@ export default async function handler(req, res) {
     const txHash = await mintNFT(walletAddress, {
       name:        `ArtAR Purchase — ${metadata.artworkName}`,
       description: `${metadata.artistName} の作品「${metadata.artworkName}」購入証明NFT`,
-      artworkUrl:  artistData.artworkUrl || '',
+      artworkUrl:  artistData.nftImageUrl || artistData.artworkUrl || '',
       artistName:  metadata.artistName  || artistData.name || '',
       artworkName: metadata.artworkName || '',
       amount:      metadata.amount,
@@ -177,6 +183,7 @@ export default async function handler(req, res) {
       amount:      metadata.amount,
       certId,
       txHash,
+      nftImageUrl: artistData.nftImageUrl || artistData.artworkUrl || '',
     });
     console.log('[webhook] メール送信完了:', email);
 
