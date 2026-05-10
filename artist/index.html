@@ -155,7 +155,7 @@
     padding: 10px 16px; font-size: 18px; cursor: pointer;
   }
 
-  /* --- 購入証明モーダル --- */
+  /* --- 購入モーダル --- */
   #nftModal {
     display: none; position: fixed; inset: 0; z-index: 40;
     background: rgba(26,20,16,0.7); align-items: flex-end; justify-content: center;
@@ -168,20 +168,42 @@
     width: 100%; max-width: 480px;
   }
   .nft-card h2 { font-size: 18px; font-weight: 800; margin-bottom: 8px; letter-spacing: 0.06em; }
-  .nft-card p { font-size: 13px; color: var(--smoke); line-height: 1.8; margin-bottom: 20px; }
+  .nft-card p { font-size: 13px; color: var(--smoke); line-height: 1.8; margin-bottom: 16px; }
+
+  /* 価格スライダー */
+  .price-slider-wrap { margin-bottom: 20px; }
+  .price-display {
+    font-size: 28px; font-weight: 800; color: var(--rust);
+    text-align: center; margin-bottom: 10px; letter-spacing: 0.04em;
+  }
+  .price-range {
+    display: flex; justify-content: space-between;
+    font-family: 'DM Mono', monospace; font-size: 11px; color: var(--smoke);
+    margin-bottom: 6px;
+  }
+  #priceSlider {
+    width: 100%; accent-color: var(--rust); cursor: pointer;
+  }
+
+  /* メール入力 */
+  .email-wrap { margin-bottom: 20px; }
+  .email-wrap label { font-size: 12px; color: var(--smoke); display: block; margin-bottom: 6px; }
+  .email-wrap input {
+    width: 100%; border: 1px solid #d8d0c4; border-radius: 6px;
+    padding: 10px 12px; font-family: 'Shippori Mincho', serif; font-size: 14px;
+    background: #fff; color: var(--ink); outline: none;
+  }
+  .email-wrap input:focus { border-color: var(--sepia); }
+
   .nft-card .btn-primary {
     width: 100%; background: var(--rust); color: #fff; border: none;
     border-radius: 6px; padding: 16px;
     font-family: 'Shippori Mincho', serif; font-size: 15px; font-weight: 800;
     letter-spacing: 0.1em; cursor: pointer; margin-bottom: 10px;
-    display: block;
+    display: block; transition: background 0.2s;
   }
-  .nft-card .btn-free {
-    width: 100%; background: transparent; color: var(--smoke);
-    border: 1px solid #d8d0c4; border-radius: 6px; padding: 13px;
-    font-family: 'Shippori Mincho', serif; font-size: 13px; cursor: pointer;
-    display: block;
-  }
+  .nft-card .btn-primary:hover { background: #a04e30; }
+  .nft-card .btn-primary:disabled { background: #ccc; cursor: not-allowed; }
   .nft-card .btn-cancel {
     width: 100%; background: none; border: none; color: var(--smoke);
     font-size: 13px; cursor: pointer; margin-top: 10px; padding: 8px;
@@ -263,13 +285,27 @@
   </div>
 </div>
 
-<!-- 購入証明モーダル -->
+<!-- 購入モーダル -->
 <div id="nftModal">
   <div class="nft-card">
-    <h2>購入証明を受け取る</h2>
-    <p id="nftDesc">この作品の購入証明NFTをウォレットに発行します。作家名・作品情報がオンチェーンに記録されます。</p>
-    <button class="btn-primary" id="btnMint">購入証明NFTを発行する（無料）</button>
-    <button class="btn-free" id="btnFreeProof">Stripe決済と連動して発行する</button>
+    <h2>作品を購入する</h2>
+    <p id="nftDesc">お支払い金額を選んでください。購入証明NFTが自動発行されます。</p>
+
+    <div class="price-slider-wrap">
+      <div class="price-display">¥<span id="priceValue">0</span></div>
+      <div class="price-range">
+        <span id="priceMin">¥0</span>
+        <span id="priceMax">¥0</span>
+      </div>
+      <input type="range" id="priceSlider" min="0" max="100000" step="100" value="0">
+    </div>
+
+    <div class="email-wrap">
+      <label>メールアドレス（NFT送付先）</label>
+      <input type="email" id="purchaseEmail" placeholder="your@email.com">
+    </div>
+
+    <button class="btn-primary" id="btnCheckout">カードで支払う →</button>
     <button class="btn-cancel" onclick="document.getElementById('nftModal').classList.remove('open')">キャンセル</button>
   </div>
 </div>
@@ -691,17 +727,71 @@ document.getElementById('chatInput').addEventListener('keydown', (e) => {
   if (e.key === 'Enter') sendChat();
 });
 
-// === 購入証明NFTモーダル ===
+// === 購入モーダル ===
 document.getElementById('btnNFT').addEventListener('click', () => {
-  document.getElementById('nftModal').classList.add('open');
+  const modal = document.getElementById('nftModal');
+  const a = artistData;
+  if (!a) return;
+
+  // 価格スライダーをアーティスト設定に合わせる
+  const min = parseInt(a.priceMin) || 500;
+  const max = parseInt(a.priceMax) || 30000;
+  const mid = Math.round((min + max) / 2 / 100) * 100;
+
+  const slider = document.getElementById('priceSlider');
+  slider.min   = min;
+  slider.max   = max;
+  slider.step  = Math.max(100, Math.round((max - min) / 50 / 100) * 100);
+  slider.value = mid;
+
+  document.getElementById('priceMin').textContent = `¥${min.toLocaleString()}`;
+  document.getElementById('priceMax').textContent = `¥${max.toLocaleString()}`;
+  document.getElementById('priceValue').textContent = mid.toLocaleString();
+
+  slider.addEventListener('input', () => {
+    document.getElementById('priceValue').textContent = parseInt(slider.value).toLocaleString();
+  });
+
+  modal.classList.add('open');
 });
-document.getElementById('btnMint').addEventListener('click', async () => {
-  // Phase 3で実装: mint-nft.js呼び出し
-  alert('Phase 3で実装予定: NFT mint');
-});
-document.getElementById('btnFreeProof').addEventListener('click', () => {
-  // Phase 3で実装: Stripe連動
-  alert('Phase 3で実装予定: Stripe決済');
+
+document.getElementById('btnCheckout').addEventListener('click', async () => {
+  const email  = document.getElementById('purchaseEmail').value.trim();
+  const amount = parseInt(document.getElementById('priceSlider').value);
+  const btn    = document.getElementById('btnCheckout');
+
+  if (!email || !email.includes('@')) {
+    alert('メールアドレスを入力してください');
+    return;
+  }
+  if (!amount || amount < 100) {
+    alert('金額を選択してください');
+    return;
+  }
+
+  btn.disabled    = true;
+  btn.textContent = '処理中...';
+
+  try {
+    const res = await fetch('/api/purchase', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        artistId:    artistId,
+        amount:      amount,
+        email:       email,
+        artworkName: artistData?.style || artistData?.name + 'の作品' || '作品',
+        artistName:  artistData?.name  || '',
+      }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || '決済エラー');
+    window.location.href = data.url;
+  } catch (err) {
+    alert('エラー: ' + err.message);
+    btn.disabled    = false;
+    btn.textContent = 'カードで支払う →';
+  }
 });
 
 // === 初期化 ===
