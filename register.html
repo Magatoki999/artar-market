@@ -583,29 +583,20 @@ document.getElementById('glbFile').addEventListener('change', async function() {
   status.textContent = `${file.name} (${(file.size / 1024 / 1024).toFixed(1)}MB) をアップロード中...`;
 
   try {
-    // ① サーバーからクライアントトークンを取得
+    // ① Pre-signed URLを取得
     const tokenRes = await fetch(`/api/upload?filename=${encodeURIComponent(file.name)}`);
     const tokenData = await tokenRes.json();
-    if (!tokenRes.ok) throw new Error(tokenData.error || 'トークン取得失敗');
+    if (!tokenRes.ok) throw new Error(tokenData.error || 'URL取得失敗');
 
-    // ② Vercel Blobに直接PUT（サーバーを経由しないので4.5MB制限なし）
-    const blobHost = 'https://blob.vercel-storage.com';
-    const putRes = await fetch(`${blobHost}/${tokenData.pathname}`, {
+    // ② R2に直接PUT（サーバー経由なし・サイズ制限なし）
+    const putRes = await fetch(tokenData.uploadUrl, {
       method: 'PUT',
-      headers: {
-        'Content-Type': 'model/gltf-binary',
-        'x-api-version': '7',
-        'authorization': `Bearer ${tokenData.clientToken}`,
-      },
+      headers: { 'Content-Type': 'application/octet-stream' },
       body: file,
     });
-    if (!putRes.ok) {
-      const errText = await putRes.text();
-      throw new Error(`Blob PUT失敗: ${putRes.status} ${errText}`);
-    }
-    const blobResult = await putRes.json();
-    uploadedGlbUrl = blobResult.url;
+    if (!putRes.ok) throw new Error(`アップロード失敗: ${putRes.status}`);
 
+    uploadedGlbUrl = tokenData.publicUrl;
     btn.textContent = '✓ アップロード完了';
     btn.classList.remove('uploading');
     btn.classList.add('done');
