@@ -164,6 +164,38 @@
     letter-spacing: 0.1em;
   }
 
+  /* GLBアップロード */
+  .glb-upload-wrap {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 14px;
+    background: var(--pale);
+    border: 1px dashed #c8b89a;
+    border-radius: 4px;
+  }
+  .glb-upload-btn {
+    background: #fff;
+    border: 1px solid #d8d0c4;
+    border-radius: 4px;
+    padding: 10px 16px;
+    font-family: 'Shippori Mincho', serif;
+    font-size: 13px;
+    color: var(--ink);
+    cursor: pointer;
+    white-space: nowrap;
+    transition: border-color 0.2s;
+  }
+  .glb-upload-btn:hover { border-color: var(--sepia); }
+  .glb-upload-btn.uploading { color: var(--smoke); cursor: not-allowed; }
+  .glb-upload-btn.done { border-color: #5a8a5a; color: #3a6a3a; }
+  .glb-status {
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    color: var(--smoke);
+    word-break: break-all;
+  }
+
   /* 価格行 */
   .price-row {
     display: flex;
@@ -394,6 +426,17 @@
     </div>
 
     <div class="form-group">
+      <label>3Dモデル（GLBファイル）<span class="hint">ARに表示するモデル・任意・50MB以内</span></label>
+      <div class="glb-upload-wrap">
+        <input type="file" id="glbFile" accept=".glb" style="display:none">
+        <button type="button" class="glb-upload-btn" id="glbUploadBtn" onclick="document.getElementById('glbFile').click()">
+          ＋ GLBファイルを選択
+        </button>
+        <p class="glb-status" id="glbStatus">未選択</p>
+      </div>
+    </div>
+
+    <div class="form-group">
       <label>作品ジャンル</label>
       <select id="artGenre">
         <option value="">— 選択してください —</option>
@@ -518,6 +561,49 @@ document.getElementById('artworkUrl').addEventListener('input', function() {
   }
 });
 
+// --- GLBファイル選択 ---
+let uploadedGlbUrl = '';
+document.getElementById('glbFile').addEventListener('change', async function() {
+  const file = this.files[0];
+  if (!file) return;
+  if (!file.name.toLowerCase().endsWith('.glb')) {
+    alert('.glbファイルのみアップロードできます');
+    return;
+  }
+  if (file.size > 50 * 1024 * 1024) {
+    alert('ファイルサイズは50MB以内にしてください');
+    return;
+  }
+
+  const btn    = document.getElementById('glbUploadBtn');
+  const status = document.getElementById('glbStatus');
+  btn.textContent = 'アップロード中...';
+  btn.classList.add('uploading');
+  btn.disabled = true;
+  status.textContent = `${file.name} (${(file.size / 1024 / 1024).toFixed(1)}MB) をアップロード中...`;
+
+  try {
+    const formData = new FormData();
+    formData.append('glb', file);
+    const res  = await fetch('/api/upload', { method: 'POST', body: formData });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'アップロード失敗');
+
+    uploadedGlbUrl = data.url;
+    btn.textContent = '✓ アップロード完了';
+    btn.classList.remove('uploading');
+    btn.classList.add('done');
+    status.textContent = file.name;
+    status.style.color = '#3a6a3a';
+  } catch (err) {
+    btn.textContent = '＋ GLBファイルを選択';
+    btn.classList.remove('uploading');
+    btn.disabled = false;
+    status.textContent = 'アップロード失敗: ' + err.message;
+    status.style.color = '#b85c38';
+  }
+});
+
 // --- キャラ選択 ---
 document.getElementById('charGrid').addEventListener('change', function(e) {
   document.querySelectorAll('.char-option').forEach(el => el.classList.remove('selected'));
@@ -554,15 +640,16 @@ document.getElementById('registerForm').addEventListener('submit', async functio
   const payload = {
     name,
     bio,
-    style:     document.getElementById('artistStyle').value.trim(),
+    style:      document.getElementById('artistStyle').value.trim(),
     artworkUrl: document.getElementById('artworkUrl').value.trim(),
-    genre:     document.getElementById('artGenre').value,
-    priceMin:  document.getElementById('priceMin').value || '',
-    priceMax:  document.getElementById('priceMax').value || '',
-    twitter:   document.getElementById('twitter').value.trim(),
-    instagram: document.getElementById('instagram').value.trim(),
-    email:     document.getElementById('email').value.trim(),
-    character: document.querySelector('input[name="character"]:checked').value,
+    glbUrl:     uploadedGlbUrl,
+    genre:      document.getElementById('artGenre').value,
+    priceMin:   document.getElementById('priceMin').value || '',
+    priceMax:   document.getElementById('priceMax').value || '',
+    twitter:    document.getElementById('twitter').value.trim(),
+    instagram:  document.getElementById('instagram').value.trim(),
+    email:      document.getElementById('email').value.trim(),
+    character:  document.querySelector('input[name="character"]:checked').value,
   };
 
   try {

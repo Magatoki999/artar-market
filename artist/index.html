@@ -489,7 +489,10 @@ function initThreeAR() {
   const root = new THREE.Group();
   scene.add(root);
 
-  gltfLoader.load(charCfg.glb, (gltf) => {
+  // glbUrl（アーティスト登録時アップロード）があれば優先、なければデフォルトGLB
+  const glbSrc = artistData?.glbUrl || charCfg.glb;
+
+  gltfLoader.load(glbSrc, (gltf) => {
     const modelScene = gltf.scene;
     // モデルの初期向き補正（アニメーションミキサーに上書きされない外側 root で管理）
     modelScene.rotation.y = charCfg.rotY ?? 0;
