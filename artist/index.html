@@ -358,14 +358,22 @@
     </div>
 
     <p class="purchase-note">お支払い完了後、購入証明NFTがウォレットに自動発行されます。</p>
+
+    <!-- Stripe Elements カード入力 -->
+    <div id="cardElementWrap" style="display:none; margin-bottom:12px;">
+      <div id="cardElement" style="background:rgba(255,255,255,0.07);border:1px solid rgba(212,175,55,0.4);border-radius:10px;padding:14px;"></div>
+      <div id="cardErrors" style="color:#ff6b6b;font-size:12px;margin-top:6px;min-height:18px;"></div>
+    </div>
+
     <button class="btn-primary" id="btnCheckout">✦ カードで購入する</button>
-    <button class="btn-cancel" onclick="document.getElementById('nftModal').classList.remove('open')">キャンセル</button>
+    <button class="btn-cancel" onclick="document.getElementById('nftModal').classList.remove('open'); resetPurchaseModal();">キャンセル</button>
   </div>
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/DRACOLoader.js"></script>
+<script src="https://js.stripe.com/v3/"></script>
 
 <script>
 
@@ -780,11 +788,28 @@ document.getElementById('chatInput').addEventListener('keydown', (e) => {
   if (e.key === 'Enter') sendChat();
 });
 
-// === 購入モーダル ===
+// === 購入モーダル（Stripe Elements） ===
+let stripe, cardElement, currentClientSecret, currentPaymentIntentId;
+
+// Stripeの公開鍵を設定（テスト用）
+const STRIPE_PK = 'pk_test_51TVTUsAUG1EzNU8zouDdZLM64JLs3jYYFGHpk8tKRXipu9iaXHPwYTUIPp7YZsbPqK1xdgIa3W24w2lGGuxVFGaM00xnYw7Gcm';
+
+function resetPurchaseModal() {
+  document.getElementById('cardElementWrap').style.display = 'none';
+  document.getElementById('cardErrors').textContent = '';
+  document.getElementById('btnCheckout').textContent = '✦ カードで購入する';
+  document.getElementById('btnCheckout').disabled = false;
+  currentClientSecret = null;
+  currentPaymentIntentId = null;
+  if (cardElement) { cardElement.unmount(); cardElement = null; }
+}
+
 document.getElementById('btnNFT').addEventListener('click', () => {
   const modal = document.getElementById('nftModal');
   const a = artistData;
   if (!a) return;
+
+  resetPurchaseModal();
 
   // 作品情報を反映
   const thumb = document.getElementById('purchaseThumb');
@@ -793,7 +818,7 @@ document.getElementById('btnNFT').addEventListener('click', () => {
   document.getElementById('purchaseArtworkName').textContent = a.style || '作品';
   document.getElementById('purchaseArtistName').textContent  = a.name || '';
 
-  // 価格スライダーをアーティスト設定に合わせる
+  // 価格スライダー
   const min = parseInt(a.priceMin) || 500;
   const max = parseInt(a.priceMax) || 30000;
   const mid = Math.round((min + max) / 2 / 100) * 100;
@@ -816,41 +841,98 @@ document.getElementById('btnNFT').addEventListener('click', () => {
 });
 
 document.getElementById('btnCheckout').addEventListener('click', async () => {
-  const email  = document.getElementById('purchaseEmail').value.trim();
+  const btn   = document.getElementById('btnCheckout');
+  const email = document.getElementById('purchaseEmail').value.trim();
   const amount = parseInt(document.getElementById('priceSlider').value);
-  const btn    = document.getElementById('btnCheckout');
 
-  if (!email || !email.includes('@')) {
-    alert('メールアドレスを入力してください');
+  if (!email || !email.includes('@')) { alert('メールアドレスを入力してください'); return; }
+  if (!amount || amount < 100) { alert('金額を選択してください'); return; }
+
+  // ステップ1: PaymentIntent作成 → カード入力欄を表示
+  if (!currentClientSecret) {
+    btn.disabled    = true;
+    btn.textContent = '準備中...';
+
+    try {
+      const res = await fetch('/api/purchase', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          artistId:    artistId,
+          amount:      amount,
+          email:       email,
+          artworkName: artistData?.style || artistData?.name + 'の作品' || '作品',
+          artistName:  artistData?.name  || '',
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || '決済エラー');
+
+      currentClientSecret    = data.clientSecret;
+      currentPaymentIntentId = data.paymentIntentId;
+
+      // Stripe Elements を初期化
+      if (!stripe) stripe = Stripe(STRIPE_PK);
+      const elements = stripe.elements({ locale: 'ja' });
+      cardElement = elements.create('card', {
+        style: {
+          base: {
+            color: '#e8d8c0',
+            fontFamily: 'sans-serif',
+            fontSize: '15px',
+            '::placeholder': { color: 'rgba(255,255,255,0.3)' },
+          },
+          invalid: { color: '#ff6b6b' },
+        },
+      });
+      document.getElementById('cardElementWrap').style.display = 'block';
+      cardElement.mount('#cardElement');
+      cardElement.on('change', (e) => {
+        document.getElementById('cardErrors').textContent = e.error ? e.error.message : '';
+      });
+
+      btn.disabled    = false;
+      btn.textContent = '✦ 支払いを確定する';
+
+    } catch (err) {
+      alert('エラー: ' + err.message);
+      btn.disabled    = false;
+      btn.textContent = '✦ カードで購入する';
+    }
     return;
   }
-  if (!amount || amount < 100) {
-    alert('金額を選択してください');
-    return;
-  }
 
+  // ステップ2: 決済を確定
   btn.disabled    = true;
-  btn.textContent = '処理中...';
+  btn.textContent = '決済処理中...';
 
   try {
-    const res = await fetch('/api/purchase', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        artistId:    artistId,
-        amount:      amount,
-        email:       email,
-        artworkName: artistData?.style || artistData?.name + 'の作品' || '作品',
-        artistName:  artistData?.name  || '',
-      }),
+    const result = await stripe.confirmCardPayment(currentClientSecret, {
+      payment_method: {
+        card: cardElement,
+        billing_details: { email },
+      },
     });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || '決済エラー');
-    window.location.href = data.url;
+
+    if (result.error) {
+      document.getElementById('cardErrors').textContent = result.error.message;
+      btn.disabled    = false;
+      btn.textContent = '✦ 支払いを確定する';
+    } else if (result.paymentIntent.status === 'succeeded') {
+      // 決済成功
+      document.getElementById('nftModal').classList.remove('open');
+      resetPurchaseModal();
+      // 購入完了メッセージ
+      const msg = document.createElement('div');
+      msg.style.cssText = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:rgba(13,10,4,0.95);border:1px solid rgba(212,175,55,0.5);border-radius:16px;padding:32px 24px;text-align:center;z-index:50;color:#e8d8c0;font-family:"Shippori Mincho",serif;max-width:300px;width:90%;';
+      msg.innerHTML = `<div style="font-size:40px;margin-bottom:12px;">✦</div><div style="font-size:18px;color:#D4AF37;letter-spacing:0.2em;margin-bottom:8px;">ありがとうございます</div><div style="font-size:12px;color:rgba(255,255,255,0.5);line-height:2;">購入証明NFTを発行中です。<br>しばらくするとメールが届きます。</div>`;
+      document.body.appendChild(msg);
+      setTimeout(() => msg.remove(), 5000);
+    }
   } catch (err) {
-    alert('エラー: ' + err.message);
+    document.getElementById('cardErrors').textContent = 'エラー: ' + err.message;
     btn.disabled    = false;
-    btn.textContent = 'カードで支払う →';
+    btn.textContent = '✦ 支払いを確定する';
   }
 });
 

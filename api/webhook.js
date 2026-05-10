@@ -134,15 +134,15 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: `Webhook Error: ${err.message}` });
   }
 
-  if (event.type !== 'checkout.session.completed') {
+  if (event.type !== 'payment_intent.succeeded') {
     return res.status(200).json({ received: true });
   }
 
-  const session  = event.data.object;
-  const metadata = session.metadata || {};
-  const email    = session.customer_email || metadata.email;
+  const paymentIntent = event.data.object;
+  const metadata      = paymentIntent.metadata || {};
+  const email         = paymentIntent.receipt_email || metadata.email;
 
-  console.log(`[webhook] 決済完了: ${session.id} artist:${metadata.artistId}`);
+  console.log(`[webhook] 決済完了: ${paymentIntent.id} artist:${metadata.artistId}`);
 
   const certId = `ARTAR-${Date.now().toString(36).toUpperCase().slice(-6)}`;
 

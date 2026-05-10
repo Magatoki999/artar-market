@@ -1,6 +1,6 @@
 // api/purchase.js
-// Stripe Checkout Session を作成して返す
-// POST /api/purchase { artistId, amount, email, artworkName }
+// Stripe PaymentIntent を作成して client_secret を返す
+// POST /api/purchase { artistId, amount, email, artworkName, artistName }
 
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -25,25 +25,10 @@ export default async function handler(req, res) {
     const Stripe = (await import('stripe')).default;
     const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 
-    const proto  = req.headers['x-forwarded-proto'] || 'https';
-    const host   = req.headers['x-forwarded-host']  || req.headers.host;
-    const base   = `${proto}://${host}`;
-
-    const session = await stripe.checkout.sessions.create({
-      payment_method_types: ['card'],
-      mode: 'payment',
-      customer_email: email,
-      line_items: [{
-        price_data: {
-          currency: 'jpy',
-          product_data: {
-            name: artworkName || '作品購入',
-            description: `${artistName || 'アーティスト'} の作品`,
-          },
-          unit_amount: Math.round(amount),
-        },
-        quantity: 1,
-      }],
+    const paymentIntent = await stripe.paymentIntents.create({
+      amount:        Math.round(amount),
+      currency:      'jpy',
+      receipt_email: email,
       metadata: {
         artistId,
         amount:      String(amount),
@@ -51,12 +36,13 @@ export default async function handler(req, res) {
         artworkName: artworkName || '',
         artistName:  artistName  || '',
       },
-      success_url: `${base}/artist/${artistId}?purchased=true&session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url:  `${base}/artist/${artistId}?cancelled=true`,
     });
 
-    console.log(`[purchase] Checkout作成: ${session.id} artist:${artistId} amount:${amount}`);
-    return res.status(200).json({ url: session.url });
+    console.log('[purchase] PaymentIntent作成: ' + paymentIntent.id);
+    return res.status(200).json({
+      clientSecret:    paymentIntent.client_secret,
+      paymentIntentId: paymentIntent.id,
+    });
 
   } catch (err) {
     console.error('[purchase] エラー:', err);
