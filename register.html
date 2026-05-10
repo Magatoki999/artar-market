@@ -583,13 +583,29 @@ document.getElementById('glbFile').addEventListener('change', async function() {
   status.textContent = `${file.name} (${(file.size / 1024 / 1024).toFixed(1)}MB) をアップロード中...`;
 
   try {
-    const formData = new FormData();
-    formData.append('glb', file);
-    const res  = await fetch('/api/upload', { method: 'POST', body: formData });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || 'アップロード失敗');
+    // ① サーバーからアップロードURLを取得
+    const tokenRes = await fetch('/api/upload', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        filename: `glb/${Date.now()}-${file.name}`,
+        contentType: 'model/gltf-binary',
+        multipart: false,
+      }),
+    });
+    const tokenData = await tokenRes.json();
+    if (!tokenRes.ok) throw new Error(tokenData.error || 'トークン取得失敗');
 
-    uploadedGlbUrl = data.url;
+    // ② Vercel Blobに直接PUT
+    const uploadRes = await fetch(tokenData.url, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'model/gltf-binary' },
+      body: file,
+    });
+    if (!uploadRes.ok) throw new Error('Blobへのアップロード失敗');
+
+    uploadedGlbUrl = tokenData.url.split('?')[0]; // クエリを除いたURL
+
     btn.textContent = '✓ アップロード完了';
     btn.classList.remove('uploading');
     btn.classList.add('done');
