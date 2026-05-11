@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>作家登録 — ArtAR</title>
+<title>作品登録 — ArtAR</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Shippori+Mincho:wght@400;600;800&family=DM+Mono:wght@300;400&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
@@ -381,20 +381,21 @@
 
 <header>
   <span class="logo">ArtAR</span>
-  <span class="logo-sub">ARTIST REGISTRATION</span>
+  <span class="logo-sub">ARTWORK REGISTRATION</span>
 </header>
 
 <main>
-  <h1 class="page-title">作家登録</h1>
+  <h1 class="page-title">作品登録</h1>
   <p class="page-desc">
-    登録するとあなた専用のARページとQRコードが発行されます。<br>
-    QRコードを印刷してブースに置くだけで、来場者があなたの世界に入れます。
+    作品を登録するとARページとQRコードが発行されます。<br>
+    QRコードを印刷してブースに置くだけで、来場者があなたの作品をARで体験できます。<br>
+    複数作品を登録する場合は、作品ごとに登録してください。
   </p>
 
   <form id="registerForm" novalidate>
 
     <!-- 基本情報 -->
-    <div class="section-label">基本情報</div>
+    <div class="section-label">作家情報</div>
 
     <div class="form-group">
       <label>作家名・屋号<span class="required">*</span></label>
@@ -417,7 +418,19 @@
     <div class="section-label">作品情報</div>
 
     <div class="form-group">
-      <label>代表作品の画像URL<span class="hint">SNSの画像URLやimgurなど</span></label>
+      <label>作品名<span class="required">*</span></label>
+      <input type="text" id="artworkName" placeholder="例：春の木漏れ日 / Forest Light No.3" required maxlength="100">
+      <p class="error-msg" id="err-artworkName">作品名を入力してください</p>
+    </div>
+
+    <div class="form-group">
+      <label>販売価格<span class="required">*</span><span class="hint">円（税込）</span></label>
+      <div class="price-row">
+        <input type="number" id="price" placeholder="3000" min="100" required>
+        <span class="price-unit">円（税込）</span>
+      </div>
+      <p class="error-msg" id="err-price">価格を入力してください（100円以上）</p>
+    </div>
       <input type="url" id="artworkUrl" placeholder="https://...">
       <div class="img-preview-wrap" id="imgPreviewWrap">
         <span class="placeholder">URLを入力するとプレビュー表示</span>
@@ -461,16 +474,6 @@
         <option value="陶芸・クラフト">陶芸・クラフト</option>
         <option value="その他">その他</option>
       </select>
-    </div>
-
-    <div class="form-group">
-      <label>価格帯<span class="hint">ARページに表示されます</span></label>
-      <div class="price-row">
-        <input type="number" id="priceMin" placeholder="500" min="0">
-        <span class="price-unit">円〜</span>
-        <input type="number" id="priceMax" placeholder="5000" min="0">
-        <span class="price-unit">円</span>
-      </div>
     </div>
 
     <!-- SNS -->
@@ -694,8 +697,10 @@ document.getElementById('registerForm').addEventListener('submit', async functio
   e.preventDefault();
 
   // バリデーション
-  const name = document.getElementById('artistName').value.trim();
-  const bio  = document.getElementById('artistBio').value.trim();
+  const name        = document.getElementById('artistName').value.trim();
+  const bio         = document.getElementById('artistBio').value.trim();
+  const artworkName = document.getElementById('artworkName').value.trim();
+  const price       = parseInt(document.getElementById('price').value);
   let valid = true;
 
   if (!name) {
@@ -710,6 +715,18 @@ document.getElementById('registerForm').addEventListener('submit', async functio
   } else {
     document.getElementById('err-bio').style.display = 'none';
   }
+  if (!artworkName) {
+    document.getElementById('err-artworkName').style.display = 'block';
+    valid = false;
+  } else {
+    document.getElementById('err-artworkName').style.display = 'none';
+  }
+  if (!price || price < 100) {
+    document.getElementById('err-price').style.display = 'block';
+    valid = false;
+  } else {
+    document.getElementById('err-price').style.display = 'none';
+  }
   if (!valid) return;
 
   // ローディング
@@ -723,9 +740,9 @@ document.getElementById('registerForm').addEventListener('submit', async functio
     artworkUrl:   document.getElementById('artworkUrl').value.trim(),
     glbUrl:       uploadedGlbUrl,
     nftImageUrl:  uploadedNftImageUrl,
+    artworkName,
+    price,
     genre:        document.getElementById('artGenre').value,
-    priceMin:     document.getElementById('priceMin').value || '',
-    priceMax:     document.getElementById('priceMax').value || '',
     twitter:      document.getElementById('twitter').value.trim(),
     instagram:    document.getElementById('instagram').value.trim(),
     email:        document.getElementById('email').value.trim(),

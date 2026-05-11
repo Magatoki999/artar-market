@@ -67,28 +67,35 @@ export default async function handler(req, res) {
       const {
         name,
         bio,
-        style      = '',
-        artworkUrl = '',
-        glbUrl     = '',
+        style       = '',
+        artworkUrl  = '',
+        glbUrl      = '',
         nftImageUrl = '',
-        genre      = '',
-        priceMin   = '',
-        priceMax   = '',
-        twitter    = '',
-        instagram  = '',
-        email      = '',
-        character  = 'utsusemi',
+        artworkName = '',
+        price       = 0,
+        genre       = '',
+        twitter     = '',
+        instagram   = '',
+        email       = '',
+        character   = 'utsusemi',
       } = req.body;
 
       if (!name || !bio) {
         return res.status(400).json({ error: '作家名と自己紹介は必須です' });
       }
+      if (!artworkName) {
+        return res.status(400).json({ error: '作品名は必須です' });
+      }
+      if (!price || Number(price) < 100) {
+        return res.status(400).json({ error: '価格は100円以上で入力してください' });
+      }
 
       const id = Math.random().toString(36).slice(2, 10);
 
       const artistData = {
-        id, name, bio, style, artworkUrl, glbUrl, nftImageUrl, genre,
-        priceMin, priceMax, twitter, instagram, email, character,
+        id, name, bio, style, artworkUrl, glbUrl, nftImageUrl,
+        artworkName, price: Number(price), genre,
+        twitter, instagram, email, character,
         createdAt: new Date().toISOString(),
       };
 

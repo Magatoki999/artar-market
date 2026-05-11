@@ -345,11 +345,7 @@
 
     <div class="price-slider-wrap">
       <div class="price-display">¥<span id="priceValue">0</span></div>
-      <div class="price-range">
-        <span id="priceMin">¥0</span>
-        <span id="priceMax">¥0</span>
-      </div>
-      <input type="range" id="priceSlider" min="0" max="100000" step="100" value="0">
+      <p style="text-align:center;font-size:11px;color:rgba(255,255,255,0.3);letter-spacing:0.1em;margin-top:4px;">販売価格（税込）</p>
     </div>
 
     <div class="email-wrap">
@@ -815,27 +811,12 @@ document.getElementById('btnNFT').addEventListener('click', () => {
   const thumb = document.getElementById('purchaseThumb');
   if (a.artworkUrl) { thumb.src = a.artworkUrl; thumb.style.display = 'block'; }
   else { thumb.style.display = 'none'; }
-  document.getElementById('purchaseArtworkName').textContent = a.style || '作品';
+  document.getElementById('purchaseArtworkName').textContent = a.artworkName || a.style || '作品';
   document.getElementById('purchaseArtistName').textContent  = a.name || '';
 
-  // 価格スライダー
-  const min = parseInt(a.priceMin) || 500;
-  const max = parseInt(a.priceMax) || 30000;
-  const mid = Math.round((min + max) / 2 / 100) * 100;
-
-  const slider = document.getElementById('priceSlider');
-  slider.min   = min;
-  slider.max   = max;
-  slider.step  = Math.max(100, Math.round((max - min) / 50 / 100) * 100);
-  slider.value = mid;
-
-  document.getElementById('priceMin').textContent   = `¥${min.toLocaleString()}`;
-  document.getElementById('priceMax').textContent   = `¥${max.toLocaleString()}`;
-  document.getElementById('priceValue').textContent = mid.toLocaleString();
-
-  slider.oninput = () => {
-    document.getElementById('priceValue').textContent = parseInt(slider.value).toLocaleString();
-  };
+  // 固定価格表示
+  const price = a.price || 0;
+  document.getElementById('priceValue').textContent = price.toLocaleString();
 
   modal.classList.add('open');
 });
@@ -843,10 +824,10 @@ document.getElementById('btnNFT').addEventListener('click', () => {
 document.getElementById('btnCheckout').addEventListener('click', async () => {
   const btn   = document.getElementById('btnCheckout');
   const email = document.getElementById('purchaseEmail').value.trim();
-  const amount = parseInt(document.getElementById('priceSlider').value);
+  const amount = artistData?.price || 0;
 
   if (!email || !email.includes('@')) { alert('メールアドレスを入力してください'); return; }
-  if (!amount || amount < 100) { alert('金額を選択してください'); return; }
+  if (!amount || amount < 100) { alert('価格が設定されていません'); return; }
 
   // ステップ1: PaymentIntent作成 → カード入力欄を表示
   if (!currentClientSecret) {
@@ -861,7 +842,7 @@ document.getElementById('btnCheckout').addEventListener('click', async () => {
           artistId:    artistId,
           amount:      amount,
           email:       email,
-          artworkName: artistData?.style || artistData?.name + 'の作品' || '作品',
+          artworkName: artistData?.artworkName || artistData?.style || '作品',
           artistName:  artistData?.name  || '',
         }),
       });
