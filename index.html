@@ -9,7 +9,6 @@
 <style>
   :root {
     --ink:   #1a1410;
-    --paper: #f5f0e8;
     --sepia: #c8a96e;
     --rust:  #b85c38;
     --smoke: #8a7f72;
@@ -20,66 +19,190 @@
     color: #fff;
     font-family: 'Shippori Mincho', serif;
     min-height: 100vh;
+  }
+
+  /* ── ヘッダー ── */
+  header {
     display: flex;
-    flex-direction: column;
     align-items: center;
-    justify-content: center;
-    padding: 40px 24px;
-    text-align: center;
+    justify-content: space-between;
+    padding: 20px 24px;
+    border-bottom: 1px solid rgba(200,169,110,0.15);
   }
-  .logo {
-    font-size: 48px;
-    font-weight: 800;
-    letter-spacing: 0.15em;
-    color: var(--sepia);
-    margin-bottom: 8px;
+  .logo { font-size: 24px; font-weight: 800; letter-spacing: 0.15em; color: var(--sepia); }
+  .logo-sub {
+    font-family: 'DM Mono', monospace; font-size: 9px;
+    letter-spacing: 0.25em; color: rgba(255,255,255,0.25); display: block; margin-top: 2px;
   }
-  .tagline {
-    font-family: 'DM Mono', monospace;
-    font-size: 11px;
-    letter-spacing: 0.3em;
-    color: rgba(255,255,255,0.35);
-    margin-bottom: 60px;
-    text-transform: uppercase;
+  .header-btn {
+    background: var(--rust); color: #fff; border: none; border-radius: 6px;
+    padding: 10px 18px; font-family: 'Shippori Mincho', serif;
+    font-size: 13px; font-weight: 800; letter-spacing: 0.1em;
+    cursor: pointer; text-decoration: none; transition: opacity 0.2s;
   }
-  .btn {
-    display: block;
-    width: 100%;
-    max-width: 320px;
-    padding: 18px;
-    border-radius: 4px;
-    font-family: 'Shippori Mincho', serif;
-    font-size: 15px;
-    font-weight: 800;
-    letter-spacing: 0.12em;
-    text-decoration: none;
-    margin-bottom: 12px;
-    transition: opacity 0.2s;
+  .header-btn:hover { opacity: 0.85; }
+
+  /* ── ヒーロー ── */
+  .hero {
+    text-align: center; padding: 48px 24px 36px;
+    border-bottom: 1px solid rgba(255,255,255,0.06);
   }
-  .btn:hover { opacity: 0.85; }
-  .btn-primary { background: var(--rust); color: #fff; }
-  .btn-secondary {
-    background: transparent;
-    color: rgba(255,255,255,0.6);
-    border: 1px solid rgba(255,255,255,0.2);
-    font-size: 13px;
+  .hero-title {
+    font-size: 32px; font-weight: 800; letter-spacing: 0.1em;
+    color: var(--sepia); margin-bottom: 12px; line-height: 1.4;
   }
-  .footer {
-    margin-top: 60px;
-    font-family: 'DM Mono', monospace;
-    font-size: 10px;
-    color: rgba(255,255,255,0.2);
-    letter-spacing: 0.2em;
+  .hero-desc {
+    font-size: 13px; color: rgba(255,255,255,0.4);
+    line-height: 2; letter-spacing: 0.06em;
+    max-width: 360px; margin: 0 auto;
+  }
+
+  /* ── 作品一覧 ── */
+  .section { padding: 32px 20px 60px; max-width: 640px; margin: 0 auto; }
+  .section-head {
+    display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px;
+  }
+  .section-title {
+    font-size: 11px; letter-spacing: 0.25em;
+    color: rgba(255,255,255,0.35); font-family: 'DM Mono', monospace;
+  }
+  .count-badge {
+    font-family: 'DM Mono', monospace; font-size: 11px;
+    color: rgba(200,169,110,0.6); background: rgba(200,169,110,0.08);
+    border: 1px solid rgba(200,169,110,0.2); border-radius: 20px; padding: 2px 10px;
+  }
+
+  /* カードグリッド */
+  .artwork-grid {
+    display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px;
+  }
+  @media (min-width: 480px) { .artwork-grid { grid-template-columns: repeat(3, 1fr); } }
+
+  .artwork-card {
+    background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.07);
+    border-radius: 10px; overflow: hidden; text-decoration: none;
+    color: inherit; display: block; transition: border-color 0.2s, transform 0.2s;
+  }
+  .artwork-card:hover { border-color: rgba(200,169,110,0.4); transform: translateY(-2px); }
+
+  .artwork-thumb {
+    width: 100%; aspect-ratio: 1; object-fit: cover; background: #1e1a15; display: block;
+  }
+  .artwork-thumb-placeholder {
+    width: 100%; aspect-ratio: 1;
+    background: linear-gradient(135deg, #1e1a15, #2a2318);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 28px; color: rgba(200,169,110,0.25);
+  }
+  .artwork-info { padding: 10px 12px 12px; }
+  .artwork-name {
+    font-size: 13px; font-weight: 600; color: rgba(255,255,255,0.85);
+    letter-spacing: 0.04em; margin-bottom: 3px;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .artwork-artist {
+    font-size: 11px; color: rgba(200,169,110,0.65); letter-spacing: 0.06em; margin-bottom: 5px;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .artwork-price { font-family: 'DM Mono', monospace; font-size: 12px; color: rgba(255,255,255,0.45); }
+  .artwork-genre {
+    display: inline-block; font-size: 9px; color: rgba(200,169,110,0.45);
+    border: 1px solid rgba(200,169,110,0.18); border-radius: 10px;
+    padding: 1px 7px; margin-top: 5px; letter-spacing: 0.06em;
+  }
+
+  /* ローディング・空 */
+  .loading {
+    text-align: center; padding: 48px 0; color: rgba(255,255,255,0.2);
+    font-family: 'DM Mono', monospace; font-size: 12px;
+    letter-spacing: 0.2em; grid-column: 1 / -1;
+  }
+  .empty {
+    text-align: center; padding: 48px 24px; color: rgba(255,255,255,0.2);
+    font-size: 13px; line-height: 2.2; grid-column: 1 / -1;
+  }
+
+  footer {
+    text-align: center; padding: 24px;
+    font-family: 'DM Mono', monospace; font-size: 10px;
+    color: rgba(255,255,255,0.15); letter-spacing: 0.2em;
+    border-top: 1px solid rgba(255,255,255,0.05);
   }
 </style>
 </head>
 <body>
-  <div class="logo">ArtAR</div>
-  <div class="tagline">Art Flea Market AR Platform</div>
 
-  <a href="/register" class="btn btn-primary">✦ 作家登録する</a>
-  <a href="#" class="btn btn-secondary">ARページのサンプルを見る</a>
+<header>
+  <div>
+    <div class="logo">ArtAR</div>
+    <span class="logo-sub">ART FLEA MARKET AR PLATFORM</span>
+  </div>
+  <a href="/register" class="header-btn">✦ 作品登録</a>
+</header>
 
-  <div class="footer">MAGATOKI Laboratory</div>
+<div class="hero">
+  <div class="hero-title">ARで出会う、<br>一点もののアート</div>
+  <p class="hero-desc">
+    QRコードをかざすとアーティストのキャラクターが現れ、<br>
+    作品の世界観を体験できます。
+  </p>
+</div>
+
+<div class="section">
+  <div class="section-head">
+    <span class="section-title">ARTWORKS</span>
+    <span class="count-badge" id="countBadge">—</span>
+  </div>
+  <div class="artwork-grid" id="artworkGrid">
+    <div class="loading">loading...</div>
+  </div>
+</div>
+
+<footer>MAGATOKI Laboratory — ArtAR</footer>
+
+<script>
+async function loadArtworks() {
+  const grid = document.getElementById('artworkGrid');
+  try {
+    const res  = await fetch('/api/artist?list=true');
+    const data = await res.json();
+
+    if (!data.success || !data.artists?.length) {
+      grid.innerHTML = '<div class="empty">まだ作品が登録されていません。<br>最初の作品を登録しましょう。</div>';
+      document.getElementById('countBadge').textContent = '0';
+      return;
+    }
+
+    const artists = data.artists;
+    document.getElementById('countBadge').textContent = artists.length;
+
+    grid.innerHTML = artists.map(a => {
+      const thumb = a.artworkUrl
+        ? `<img class="artwork-thumb" src="${a.artworkUrl}" alt="${a.artworkName || ''}" loading="lazy" onerror="this.outerHTML='<div class=\\'artwork-thumb-placeholder\\'>✦</div>'">`
+        : `<div class="artwork-thumb-placeholder">✦</div>`;
+      const genre = a.genre ? `<span class="artwork-genre">${a.genre}</span>` : '';
+      const price = a.price ? `¥${Number(a.price).toLocaleString()}` : '';
+
+      return `
+        <a href="/artist/${a.id}" class="artwork-card">
+          ${thumb}
+          <div class="artwork-info">
+            <div class="artwork-name">${a.artworkName || '無題'}</div>
+            <div class="artwork-artist">${a.name || ''}</div>
+            <div class="artwork-price">${price}</div>
+            ${genre}
+          </div>
+        </a>`;
+    }).join('');
+
+  } catch (err) {
+    grid.innerHTML = `<div class="empty">読み込みに失敗しました。</div>`;
+    console.error(err);
+  }
+}
+
+loadArtworks();
+</script>
+
 </body>
 </html>

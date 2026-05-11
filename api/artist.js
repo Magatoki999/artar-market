@@ -44,7 +44,40 @@ export default async function handler(req, res) {
 
   // ── GET: アーティスト情報取得 ────────────────────────────────────
   if (req.method === 'GET') {
-    const { id } = req.query;
+    const { id, list } = req.query;
+
+    // 一覧取得モード
+    if (list === 'true') {
+      try {
+        const listData = await redisCommand('LRANGE', 'artist_ids', 0, 99);
+        const ids = listData.result || [];
+
+        // 重複除去
+        const uniqueIds = [...new Set(ids)];
+
+        // 各アーティスト情報を取得
+        const artists = await Promise.all(
+          uniqueIds.map(async (aid) => {
+            const a = await redisGet(`artist:${aid}`);
+            if (!a) return null;
+            const { email: _email, ...pub } = a;
+            return pub;
+          })
+        );
+
+        // nullを除外して新しい順に返す
+        const result = artists
+          .filter(Boolean)
+          .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+
+        return res.status(200).json({ success: true, artists: result });
+      } catch (err) {
+        console.error('[artist LIST] エラー:', err);
+        return res.status(500).json({ error: 'サーバーエラーが発生しました' });
+      }
+    }
+
+    // 個別取得モード
     if (!id) return res.status(400).json({ error: 'id パラメータが必要です' });
 
     try {
