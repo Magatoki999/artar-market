@@ -856,6 +856,7 @@ document.getElementById('btnCheckout').addEventListener('click', async () => {
       if (!stripe) stripe = Stripe(STRIPE_PK);
       const elements = stripe.elements({ locale: 'ja' });
       cardElement = elements.create('card', {
+        hidePostalCode: true,
         style: {
           base: {
             color: '#e8d8c0',

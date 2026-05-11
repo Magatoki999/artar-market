@@ -10,6 +10,14 @@ const NFT_ABI = [
   'event Transfer(address indexed from, address indexed to, uint256 indexed tokenId)',
 ];
 
+// キャラクター別デフォルトNFT画像
+const CHAR_DEFAULT_NFT = {
+  utsusemi: 'https://pub-5162ceda92fb4bf7aca56c2066725d33.r2.dev/nft/utsusemi_default.png',
+  yugao:    'https://pub-5162ceda92fb4bf7aca56c2066725d33.r2.dev/nft/yugao_default.png',
+  ohma:     'https://pub-5162ceda92fb4bf7aca56c2066725d33.r2.dev/nft/ohma_default.png', // 登録後に追加
+  aciel:    'https://pub-5162ceda92fb4bf7aca56c2066725d33.r2.dev/nft/aciel_default.png', // 登録後に追加
+};
+
 export const config = {
   api: { bodyParser: false },
   maxDuration: 60,
@@ -163,11 +171,15 @@ export default async function handler(req, res) {
     const walletAddress = await getOrCreateWallet(email);
     console.log('[webhook] wallet:', walletAddress);
 
+    // NFT画像の優先順位: クリエーター登録画像 → キャラデフォルト → 作品画像
+    const charDefault = CHAR_DEFAULT_NFT[artistData.character] || null;
+    const nftImageUrl = artistData.nftImageUrl || charDefault || artistData.artworkUrl || '';
+
     // NFT mint
     const txHash = await mintNFT(walletAddress, {
       name:        `ArtAR Purchase — ${metadata.artworkName}`,
       description: `${metadata.artistName} の作品「${metadata.artworkName}」購入証明NFT`,
-      artworkUrl:  artistData.nftImageUrl || artistData.artworkUrl || '',
+      artworkUrl:  nftImageUrl,
       artistName:  metadata.artistName  || artistData.name || '',
       artworkName: metadata.artworkName || '',
       amount:      metadata.amount,
@@ -183,7 +195,7 @@ export default async function handler(req, res) {
       amount:      metadata.amount,
       certId,
       txHash,
-      nftImageUrl: artistData.nftImageUrl || artistData.artworkUrl || '',
+      nftImageUrl,
     });
     console.log('[webhook] メール送信完了:', email);
 
