@@ -658,35 +658,45 @@ const CHAR_GREETING = {
 
 async function speakTTS(text, lang) {
   if (ttsPlaying) return;
+  if (!window.speechSynthesis) return;
+
   ttsPlaying = true;
   duckBGM(true);
-  try {
-    const character = artistData?.character || 'utsusemi';
-    const res = await fetch('/api/tts', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ text, lang, character }),
-    });
-    if (!res.ok) throw new Error('TTS API error');
-    const data = await res.json();
-    if (!data.audioBase64) throw new Error('No audio data');
 
-    const ctx = getAudioCtx();
-    const binary = atob(data.audioBase64);
-    const bytes  = new Uint8Array(binary.length);
-    for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
-    const audioBuffer = await ctx.decodeAudioData(bytes.buffer);
+  // 再生中のものをキャンセル
+  window.speechSynthesis.cancel();
 
-    const source = ctx.createBufferSource();
-    source.buffer = audioBuffer;
-    source.connect(ctx.destination);
-    source.start();
-    source.onended = () => { ttsPlaying = false; duckBGM(false); };
-  } catch (err) {
-    console.warn('[TTS]', err.message);
-    ttsPlaying = false;
-    duckBGM(false);
+  const utter = new SpeechSynthesisUtterance(text);
+  utter.lang = lang === 'ja' ? 'ja-JP'
+    : lang === 'zh' ? 'zh-CN'
+    : lang === 'ko' ? 'ko-KR'
+    : lang === 'fr' ? 'fr-FR'
+    : lang === 'de' ? 'de-DE'
+    : lang === 'es' ? 'es-ES'
+    : lang === 'it' ? 'it-IT'
+    : lang === 'th' ? 'th-TH'
+    : 'en-US';
+
+  // キャラ別に声の雰囲気を調整
+  const character = artistData?.character || 'utsusemi';
+  if (character === 'utsusemi' || character === 'yugao') {
+    utter.rate  = 0.85;  // ゆっくり
+    utter.pitch = 1.15;  // 少し高め
+    utter.volume = 0.9;
+  } else if (character === 'ohma') {
+    utter.rate  = 1.0;
+    utter.pitch = 0.85;  // 低め
+    utter.volume = 0.9;
+  } else {
+    utter.rate  = 1.05;  // 少し速め
+    utter.pitch = 1.1;
+    utter.volume = 0.9;
   }
+
+  utter.onend   = () => { ttsPlaying = false; duckBGM(false); };
+  utter.onerror = () => { ttsPlaying = false; dukBGM(false); };
+
+  window.speechSynthesis.speak(utter);
 }
 
 // チャット受信時のリアクション
