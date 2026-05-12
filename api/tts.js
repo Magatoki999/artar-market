@@ -49,7 +49,7 @@ export default async function handler(req, res) {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          contents: [{ parts: [{ text: `${voicePrompt}\n\n${text}` }] }],
+          contents: [{ parts: [{ text }] }],
           generationConfig: {
             responseModalities: ['AUDIO'],
             speechConfig: {
