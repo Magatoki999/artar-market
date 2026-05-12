@@ -587,12 +587,18 @@ function initThreeAR() {
 
   gltfLoader.load(glbSrc, (gltf) => {
     const modelScene = gltf.scene;
-    // モデルの初期向き補正（アニメーションミキサーに上書きされない外側 root で管理）
     modelScene.rotation.y = charCfg.rotY ?? 0;
     root.add(modelScene);
     root.scale.setScalar(charCfg.scale);
     root.position.set(...charCfg.pos);
     charModel = root;
+
+    // 浮遊・リアクション用のベース値を保存
+    charModel.userData.baseY     = charCfg.pos[1];
+    charModel.userData.baseScale = charCfg.scale;
+
+    // 視線追従用ヘッドボーンを探す
+    charHead = findHeadBone(modelScene);
 
     // アニメーションがあれば全て再生
     if (gltf.animations && gltf.animations.length > 0) {
@@ -624,6 +630,81 @@ function initThreeAR() {
 
 const clock = new THREE.Clock();
 
+// === TTS・接客強化 ===
+let audioCtx = null;
+let ttsPlaying = false;
+let reactionPulse = 0;       // チャット受信時のパルス強度
+let lookAtTarget = new THREE.Vector3(0, 0, 2.8); // 視線追従ターゲット
+let charHead = null;          // 視線追従用ボーン or root参照
+
+// AudioContext 初期化（ユーザー操作後に呼ぶ）
+function getAudioCtx() {
+  if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  return audioCtx;
+}
+
+// BGMダッキング（将来BGM追加時用のフック）
+function duckBGM(on) {
+  // BGMがあればここでゲインを下げる
+}
+
+// キャラ別挨拶テキスト
+const CHAR_GREETING = {
+  utsusemi: { ja: 'いらっしゃいませ。この作品に導かれてきたのですね。どうぞ、お気軽に話しかけてください。', en: 'Welcome. You were drawn to this work. Please feel free to speak to me.' },
+  yugao:    { ja: 'ようこそ。夜の花のように、ひっそりと咲くこの作品を、どうぞゆっくりご覧ください。', en: 'Welcome. Please take your time with this work, blooming quietly like a night flower.' },
+  ohma:     { ja: 'いらっしゃい。この作品には面白い発見がありますよ。気になることがあれば何でも聞いてください。', en: 'Welcome. There are interesting discoveries in this work. Feel free to ask me anything.' },
+  aciel:    { ja: 'わあ、来てくれた！この作品、すごく好きなんです。一緒に見ていきましょう！', en: "Oh, you came! I really love this work. Let's look at it together!" },
+};
+
+async function speakTTS(text, lang) {
+  if (ttsPlaying) return;
+  ttsPlaying = true;
+  duckBGM(true);
+  try {
+    const character = artistData?.character || 'utsusemi';
+    const res = await fetch('/api/tts', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text, lang, character }),
+    });
+    if (!res.ok) throw new Error('TTS API error');
+    const data = await res.json();
+    if (!data.audioBase64) throw new Error('No audio data');
+
+    const ctx = getAudioCtx();
+    const binary = atob(data.audioBase64);
+    const bytes  = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+    const audioBuffer = await ctx.decodeAudioData(bytes.buffer);
+
+    const source = ctx.createBufferSource();
+    source.buffer = audioBuffer;
+    source.connect(ctx.destination);
+    source.start();
+    source.onended = () => { ttsPlaying = false; duckBGM(false); };
+  } catch (err) {
+    console.warn('[TTS]', err.message);
+    ttsPlaying = false;
+    duckBGM(false);
+  }
+}
+
+// チャット受信時のリアクション
+function triggerReaction() {
+  reactionPulse = 1.0;
+}
+
+// 視線追従：GLBのhead ボーンを探す
+function findHeadBone(model) {
+  let headBone = null;
+  model.traverse(obj => {
+    if (headBone) return;
+    const name = obj.name.toLowerCase();
+    if (name.includes('head') || name.includes('neck')) headBone = obj;
+  });
+  return headBone;
+}
+
 function animate() {
   animFrame = requestAnimationFrame(animate);
   const t = performance.now() * 0.001;
@@ -633,7 +714,37 @@ function animate() {
     artPlane.rotation.y = Math.sin(t * 0.3) * 0.03;
     artPlane.position.y = 0.1 + Math.sin(t * 0.5) * 0.02;
   }
-  // charModel(root)の rotation は固定（毎フレーム上書きしない）
+
+  // キャラ浮遊アニメーション（空蝉・夕顔：ボーンなしでも存在感UP）
+  if (charModel) {
+    // 上下浮遊
+    charModel.position.y = charModel.userData.baseY + Math.sin(t * 0.8) * 0.04;
+    // 微妙な左右揺れ
+    charModel.rotation.z = Math.sin(t * 0.5) * 0.015;
+
+    // チャットリアクション：パルス拡縮
+    if (reactionPulse > 0) {
+      const pulse = 1.0 + Math.sin(reactionPulse * Math.PI) * 0.06;
+      charModel.scale.setScalar(charModel.userData.baseScale * pulse);
+      reactionPulse = Math.max(0, reactionPulse - delta * 2.5);
+    } else {
+      charModel.scale.setScalar(charModel.userData.baseScale);
+    }
+
+    // 視線追従：カメラ方向をゆっくり向く
+    if (charHead) {
+      const target = new THREE.Vector3();
+      camera.getWorldPosition(target);
+      // headボーンのワールド位置からカメラへの方向
+      const headWorld = new THREE.Vector3();
+      charHead.getWorldPosition(headWorld);
+      const dir = target.sub(headWorld).normalize();
+      // 左右のみ追従（上下は制限）
+      const angle = Math.atan2(dir.x, dir.z);
+      charHead.rotation.y += (angle * 0.3 - charHead.rotation.y) * 0.05;
+      charHead.rotation.y = Math.max(-0.5, Math.min(0.5, charHead.rotation.y));
+    }
+  }
 
   // オーラリング：呼吸するように opacity を揺らす
   auraRings.forEach((r) => {
@@ -684,6 +795,14 @@ document.getElementById('btnStartAR').addEventListener('click', async () => {
     arRunning = true;
     await startCamera();
     initThreeAR();
+
+    // 自動挨拶（2秒後にTTSで話しかける）
+    setTimeout(() => {
+      const character = artistData?.character || 'utsusemi';
+      const greetings = CHAR_GREETING[character] || CHAR_GREETING.utsusemi;
+      const greetText = greetings[langBase] || greetings.en || greetings.ja;
+      speakTTS(greetText, langBase);
+    }, 2000);
   }
 });
 
@@ -718,6 +837,8 @@ document.getElementById('btnChat').addEventListener('click', () => {
   if (chatMessages.children.length === 0) {
     const greeting = GREETING[langBase] || GREETING.en;
     addAIMessage(greeting);
+    // チャットパネルを開いたときも音声挨拶
+    speakTTS(greeting, langBase);
   }
 });
 document.getElementById('chatClose').addEventListener('click', () => {
@@ -773,6 +894,10 @@ async function sendChat() {
     loadingMsg.textContent = reply;
     loadingMsg.classList.remove('loading');
     chatHistory.push({ role: 'assistant', content: reply });
+
+    // TTS で返答を音声再生 + リアクション
+    triggerReaction();
+    speakTTS(reply, langBase);
   } catch {
     loadingMsg.textContent = 'エラーが発生しました。もう一度お試しください。';
     loadingMsg.classList.remove('loading');
