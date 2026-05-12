@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ArtAR システムドキュメント</title>
+<link href="https://fonts.googleapis.com/css2?family=Shippori+Mincho:wght@400;600;800&family=DM+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root{--ink:#0d0a06;--sepia:#c8a96e;--rust:#b85c38;--gold:#D4AF37;--border:rgba(200,169,110,0.2);}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--ink);color:#e8e0d0;font-family:'Shippori Mincho',serif;line-height:1.7;font-size:14px;}
+nav{position:sticky;top:0;z-index:100;background:rgba(13,10,6,0.96);backdrop-filter:blur(8px);border-bottom:1px solid var(--border);padding:0 24px;display:flex;align-items:center;overflow-x:auto;}
+.nav-logo{font-size:16px;font-weight:800;color:var(--gold);letter-spacing:0.15em;padding:14px 20px 14px 0;border-right:1px solid var(--border);margin-right:16px;white-space:nowrap;}
+.nav-link{font-family:'DM Mono',monospace;font-size:10px;letter-spacing:0.15em;color:rgba(255,255,255,0.35);padding:14px 12px;white-space:nowrap;cursor:pointer;transition:color 0.2s;border:none;background:none;}
+.nav-link:hover{color:var(--sepia);}
+.hero{padding:60px 32px 48px;border-bottom:1px solid var(--border);}
+.hero-tag{font-family:'DM Mono',monospace;font-size:10px;letter-spacing:0.3em;color:rgba(200,169,110,0.5);margin-bottom:12px;}
+.hero-title{font-size:36px;font-weight:800;letter-spacing:0.1em;color:var(--gold);margin-bottom:8px;}
+.hero-sub{font-size:14px;color:rgba(255,255,255,0.4);letter-spacing:0.1em;margin-bottom:24px;}
+.hero-meta{display:flex;gap:20px;flex-wrap:wrap;}
+.meta-item{font-family:'DM Mono',monospace;font-size:11px;color:rgba(255,255,255,0.3);}
+.meta-val{color:var(--sepia);}
+.status-badge{display:inline-flex;align-items:center;gap:6px;background:rgba(80,180,80,0.1);border:1px solid rgba(80,180,80,0.3);border-radius:20px;padding:4px 12px;font-family:'DM Mono',monospace;font-size:10px;color:rgba(120,220,120,0.8);letter-spacing:0.1em;margin-top:12px;}
+.status-dot{width:6px;height:6px;border-radius:50%;background:#4caf50;}
+.section{padding:40px 32px;border-bottom:1px solid rgba(255,255,255,0.05);max-width:900px;margin:0 auto;}
+.section-label{font-family:'DM Mono',monospace;font-size:10px;letter-spacing:0.3em;color:rgba(200,169,110,0.4);margin-bottom:8px;}
+.section-title{font-size:22px;font-weight:800;color:var(--sepia);letter-spacing:0.08em;margin-bottom:24px;}
+.status-table{width:100%;border-collapse:collapse;margin-bottom:8px;}
+.status-table th{font-family:'DM Mono',monospace;font-size:10px;letter-spacing:0.15em;color:rgba(255,255,255,0.25);text-align:left;padding:8px 12px;border-bottom:1px solid rgba(255,255,255,0.08);}
+.status-table td{padding:10px 12px;border-bottom:1px solid rgba(255,255,255,0.04);font-size:13px;vertical-align:top;}
+.badge{display:inline-block;font-family:'DM Mono',monospace;font-size:10px;border-radius:4px;padding:2px 8px;}
+.badge-done{background:rgba(80,180,80,0.12);color:#6dbb6d;border:1px solid rgba(80,180,80,0.25);}
+.badge-pending{background:rgba(200,169,110,0.1);color:rgba(200,169,110,0.7);border:1px solid rgba(200,169,110,0.2);}
+.badge-future{background:rgba(255,255,255,0.05);color:rgba(255,255,255,0.3);border:1px solid rgba(255,255,255,0.1);}
+.stack-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px;}
+.stack-card{background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.07);border-radius:8px;padding:14px 16px;}
+.stack-category{font-family:'DM Mono',monospace;font-size:9px;letter-spacing:0.2em;color:rgba(200,169,110,0.4);margin-bottom:6px;}
+.stack-name{font-size:14px;font-weight:600;color:rgba(255,255,255,0.8);margin-bottom:3px;}
+.stack-desc{font-size:11px;color:rgba(255,255,255,0.3);line-height:1.6;}
+.file-tree{background:rgba(0,0,0,0.3);border:1px solid rgba(255,255,255,0.08);border-radius:8px;padding:20px 24px;font-family:'DM Mono',monospace;font-size:12px;line-height:2;}
+.tree-dir{color:var(--sepia);}
+.tree-file{color:rgba(255,255,255,0.6);}
+.tree-comment{color:rgba(255,255,255,0.2);font-size:11px;}
+.env-table{width:100%;border-collapse:collapse;}
+.env-table td{padding:8px 12px;border-bottom:1px solid rgba(255,255,255,0.04);font-size:12px;vertical-align:top;}
+.env-key{font-family:'DM Mono',monospace;color:var(--sepia);font-size:11px;}
+.env-desc{color:rgba(255,255,255,0.45);}
+.env-service{font-family:'DM Mono',monospace;font-size:10px;color:rgba(255,255,255,0.2);}
+.step{display:flex;gap:16px;margin-bottom:20px;align-items:flex-start;}
+.step-num{width:28px;height:28px;border-radius:50%;background:rgba(200,169,110,0.12);border:1px solid rgba(200,169,110,0.3);display:flex;align-items:center;justify-content:center;font-family:'DM Mono',monospace;font-size:12px;color:var(--sepia);flex-shrink:0;margin-top:2px;}
+.step-body{flex:1;}
+.step-title{font-size:14px;font-weight:600;color:rgba(255,255,255,0.85);margin-bottom:4px;}
+.step-desc{font-size:12px;color:rgba(255,255,255,0.4);line-height:1.8;}
+.step-code{font-family:'DM Mono',monospace;font-size:11px;color:rgba(200,169,110,0.7);background:rgba(0,0,0,0.3);border:1px solid rgba(255,255,255,0.08);border-radius:4px;padding:8px 12px;margin-top:8px;display:block;line-height:1.8;white-space:pre-wrap;word-break:break-all;}
+.api-row{background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.06);border-radius:6px;padding:12px 16px;margin-bottom:8px;}
+.api-endpoint{font-family:'DM Mono',monospace;font-size:12px;color:var(--sepia);margin-bottom:4px;}
+.api-method{display:inline-block;font-family:'DM Mono',monospace;font-size:9px;letter-spacing:0.1em;border-radius:3px;padding:1px 6px;margin-right:6px;}
+.method-get{background:rgba(80,150,255,0.15);color:rgba(80,180,255,0.8);border:1px solid rgba(80,150,255,0.25);}
+.method-post{background:rgba(80,200,80,0.12);color:rgba(100,220,100,0.8);border:1px solid rgba(80,200,80,0.2);}
+.api-desc{font-size:12px;color:rgba(255,255,255,0.4);}
+.note{background:rgba(200,169,110,0.06);border-left:3px solid rgba(200,169,110,0.4);border-radius:0 6px 6px 0;padding:12px 16px;margin-bottom:12px;font-size:12px;color:rgba(255,255,255,0.5);line-height:1.8;}
+.note strong{color:rgba(200,169,110,0.8);}
+.warn{background:rgba(255,150,50,0.06);border-left:3px solid rgba(255,150,50,0.4);border-radius:0 6px 6px 0;padding:12px 16px;margin-bottom:12px;font-size:12px;color:rgba(255,255,255,0.5);line-height:1.8;}
+.warn strong{color:rgba(255,180,80,0.8);}
+.roadmap{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:12px;}
+.roadmap-card{border-radius:8px;padding:14px 16px;}
+.phase-done{background:rgba(80,180,80,0.06);border:1px solid rgba(80,180,80,0.2);}
+.phase-now{background:rgba(200,169,110,0.08);border:1px solid rgba(200,169,110,0.3);}
+.phase-next{background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.08);}
+.phase-label{font-family:'DM Mono',monospace;font-size:9px;letter-spacing:0.2em;margin-bottom:6px;}
+.phase-done .phase-label{color:rgba(80,200,80,0.5);}
+.phase-now .phase-label{color:rgba(200,169,110,0.6);}
+.phase-next .phase-label{color:rgba(255,255,255,0.2);}
+.phase-title{font-size:13px;font-weight:600;margin-bottom:6px;}
+.phase-done .phase-title{color:rgba(120,220,120,0.8);}
+.phase-now .phase-title{color:var(--sepia);}
+.phase-next .phase-title{color:rgba(255,255,255,0.3);}
+.phase-items{font-size:11px;line-height:1.9;}
+.phase-done .phase-items{color:rgba(255,255,255,0.3);}
+.phase-now .phase-items{color:rgba(255,255,255,0.4);}
+.phase-next .phase-items{color:rgba(255,255,255,0.2);}
+footer{text-align:center;padding:32px;font-family:'DM Mono',monospace;font-size:10px;color:rgba(255,255,255,0.15);letter-spacing:0.2em;border-top:1px solid rgba(255,255,255,0.05);}
+</style>
+</head>
+<body>
+<nav>
+  <div class="nav-logo">ArtAR DOCS</div>
+  <button class="nav-link" onclick="document.getElementById('overview').scrollIntoView({behavior:'smooth'})">概要</button>
+  <button class="nav-link" onclick="document.getElementById('stack').scrollIntoView({behavior:'smooth'})">技術スタック</button>
+  <button class="nav-link" onclick="document.getElementById('files').scrollIntoView({behavior:'smooth'})">ファイル構成</button>
+  <button class="nav-link" onclick="document.getElementById('api').scrollIntoView({behavior:'smooth'})">API</button>
+  <button class="nav-link" onclick="document.getElementById('env').scrollIntoView({behavior:'smooth'})">環境変数</button>
+  <button class="nav-link" onclick="document.getElementById('manual').scrollIntoView({behavior:'smooth'})">運用手順</button>
+  <button class="nav-link" onclick="document.getElementById('roadmap').scrollIntoView({behavior:'smooth'})">ロードマップ</button>
+</nav>
+<div class="hero">
+  <div class="hero-tag">SYSTEM DOCUMENTATION v1.0 — 2026.05</div>
+  <div class="hero-title">ArtAR</div>
+  <div class="hero-sub">アートフリマ AR x NFT x カード決済プラットフォーム</div>
+  <div class="hero-meta">
+    <div class="meta-item">制作 <span class="meta-val">MAGATOKI Laboratory</span></div>
+    <div class="meta-item">本番URL <span class="meta-val">artar-market.vercel.app</span></div>
+    <div class="meta-item">GitHub <span class="meta-val">Magatoki999/artar-market</span></div>
+  </div>
+  <div><span class="status-badge"><span class="status-dot"></span>PRODUCTION ACTIVE (TEST MODE)</span></div>
+</div>
+<div class="section" id="overview">
+  <div class="section-label">01 — OVERVIEW</div>
+  <div class="section-title">システム概要と機能状況</div>
+  <p style="color:rgba(255,255,255,0.5);line-height:2;margin-bottom:24px;">ArtARはアートフリマ向けのAR x NFT x カード決済プラットフォームです。クリエーターが作品を登録するとARページとQRコードが発行され、来場者がQRをかざすとアーティストのキャラクターがAR空間に現れ作品の世界観を体験できます。購入するとStripeでカード決済が完了し、PolygonブロックチェーンにNFT購入証明が自動発行されます。</p>
+  <table class="status-table">
+    <thead><tr><th>機能</th><th>状態</th><th>説明</th></tr></thead>
+    <tbody>
+      <tr><td>作品登録 /register</td><td><span class="badge badge-done">完了</span></td><td>作家名・作品名・価格・GLB・NFT画像・キャラ選択</td></tr>
+      <tr><td>ARページ /artist/id</td><td><span class="badge badge-done">完了</span></td><td>Three.js + カメラ + GLBキャラ + オーラエフェクト + 作品画像</td></tr>
+      <tr><td>作家人格AIチャット</td><td><span class="badge badge-done">完了</span></td><td>Claude Haiku・9言語自動対応・作家プロフィール反映</td></tr>
+      <tr><td>GLBアップロード</td><td><span class="badge badge-done">完了</span></td><td>Cloudflare R2 + Pre-signed URL（50MB対応）</td></tr>
+      <tr><td>NFT画像アップロード</td><td><span class="badge badge-done">完了</span></td><td>jpg/png/webp対応・キャラデフォルト画像フォールバック</td></tr>
+      <tr><td>Stripe Elements決済</td><td><span class="badge badge-done">完了</span></td><td>モーダル内カード入力・郵便番号非表示・ページ遷移なし</td></tr>
+      <tr><td>NFT mint（Polygon）</td><td><span class="badge badge-done">完了</span></td><td>Privy自動ウォレット生成・ERC-721・Base64メタデータ</td></tr>
+      <tr><td>購入証明メール</td><td><span class="badge badge-done">完了</span></td><td>Resend・NFT画像表示・Polygonscanリンク</td></tr>
+      <tr><td>トップページ作品一覧</td><td><span class="badge badge-done">完了</span></td><td>登録作品をカードグリッドで表示・新着順</td></tr>
+      <tr><td>管理者ダッシュボード</td><td><span class="badge badge-pending">未実装</span></td><td>売上・登録作品管理</td></tr>
+      <tr><td>Dr.Ohma/Aciel NFT画像</td><td><span class="badge badge-pending">画像準備中</span></td><td>webhook.jsのCHAR_DEFAULT_NFTに追加予定</td></tr>
+      <tr><td>Stripe Connect送金</td><td><span class="badge badge-future">Phase5</span></td><td>クリエーターへの自動送金</td></tr>
+      <tr><td>本番環境切り替え</td><td><span class="badge badge-future">Phase4</span></td><td>Stripe本番・Polygon Mainnet</td></tr>
+    </tbody>
+  </table>
+</div>
+<div class="section" id="stack">
+  <div class="section-label">02 — TECH STACK</div>
+  <div class="section-title">技術スタック</div>
+  <div class="stack-grid">
+    <div class="stack-card"><div class="stack-category">HOSTING</div><div class="stack-name">Vercel</div><div class="stack-desc">静的ホスティング + Serverless Functions。無料プランAPI 12本制限。現在5本使用。</div></div>
+    <div class="stack-card"><div class="stack-category">3D / AR</div><div class="stack-name">Three.js r128</div><div class="stack-desc">GLBキャラ表示・オーラエフェクト（輪郭リング・浮遊光球・足元グロー）・DRACOLoader対応</div></div>
+    <div class="stack-card"><div class="stack-category">AI CHAT</div><div class="stack-name">Claude Haiku</div><div class="stack-desc">作家人格AI・9言語自動対応・claude-haiku-4-5-20251001・150字以内で回答</div></div>
+    <div class="stack-card"><div class="stack-category">DATABASE</div><div class="stack-name">Upstash Redis</div><div class="stack-desc">作品データ保存（90日TTL）・artist_idsリスト管理・REST API方式</div></div>
+    <div class="stack-card"><div class="stack-category">FILE STORAGE</div><div class="stack-name">Cloudflare R2</div><div class="stack-desc">GLB（glb/）・NFT画像（nft/）保存。Pre-signed URL方式。Egress完全無料。10GB無料枠。</div></div>
+    <div class="stack-card"><div class="stack-category">PAYMENT</div><div class="stack-name">Stripe</div><div class="stack-desc">Elements（モーダル内カード入力）・PaymentIntent方式・JPY・Webhook連携</div></div>
+    <div class="stack-card"><div class="stack-category">WALLET</div><div class="stack-name">Privy</div><div class="stack-desc">メールから自動ウォレット生成。購入者はウォレット不要。既存ユーザーは409で検索。</div></div>
+    <div class="stack-card"><div class="stack-category">BLOCKCHAIN</div><div class="stack-name">Polygon PoS</div><div class="stack-desc">ERC-721 NFT・Base64メタデータ（IPFS不要）・香訪コントラクト流用</div></div>
+    <div class="stack-card"><div class="stack-category">EMAIL</div><div class="stack-name">Resend</div><div class="stack-desc">購入証明メール・NFT画像埋め込み・noreply@magatokilab.com送信</div></div>
+  </div>
+  <div class="note" style="margin-top:20px;"><strong>NFT画像優先順位：</strong>クリエーターアップロード画像 → キャラデフォルト画像（空蝉/夕顔/Dr.Ohma/Aciel） → artworkUrl → 画像なし</div>
+  <div class="note"><strong>API本数：</strong>Vercel無料プランは12本まで。現在 artist / chat / upload / purchase / webhook の5本使用。残り7本。</div>
+</div>
+<div class="section" id="files">
+  <div class="section-label">03 — FILE STRUCTURE</div>
+  <div class="section-title">ファイル構成</div>
+  <div class="file-tree">
+<span class="tree-dir">artar-market/</span>
+├── <span class="tree-file">vercel.json</span>    <span class="tree-comment"># ルーティング（順序重要・ワイルドカードは最後）</span>
+├── <span class="tree-file">index.html</span>     <span class="tree-comment"># トップページ（作品一覧カードグリッド）</span>
+├── <span class="tree-file">register.html</span>  <span class="tree-comment"># 作品登録フォーム</span>
+├── <span class="tree-file">package.json</span>   <span class="tree-comment"># type:module / stripe・ethers・resend・@vercel/blob</span>
+├── <span class="tree-file">.gitignore</span>     <span class="tree-comment"># node_modules・.env・.vercel</span>
+├── <span class="tree-dir">artist/</span>
+│   └── <span class="tree-file">index.html</span> <span class="tree-comment"># ARページ（Three.js + チャット + 購入モーダル）</span>
+└── <span class="tree-dir">api/</span>           <span class="tree-comment"># Vercel Serverless Functions（5/12本使用）</span>
+    ├── <span class="tree-file">artist.js</span>  <span class="tree-comment"># GET?id / GET?list=true / POST 統合</span>
+    ├── <span class="tree-file">chat.js</span>    <span class="tree-comment"># 作家人格AI（Claude Haiku）</span>
+    ├── <span class="tree-file">upload.js</span>  <span class="tree-comment"># R2 Pre-signed URL発行（GLB・画像）</span>
+    ├── <span class="tree-file">purchase.js</span><span class="tree-comment"># Stripe PaymentIntent作成</span>
+    └── <span class="tree-file">webhook.js</span> <span class="tree-comment"># 決済完了→Privy→NFT mint→Resendメール</span>
+  </div>
+  <div class="note" style="margin-top:16px;"><strong>vercel.json 注意：</strong>/register と /artist/:id をワイルドカード（/*）より前に明示的に記載すること。</div>
+  <div class="note"><strong>R2バケット構造：</strong>artar-glb/glb/ → GLBファイル / artar-glb/nft/ → NFT証明画像・キャラデフォルト画像</div>
+</div>
+<div class="section" id="api">
+  <div class="section-label">04 — API REFERENCE</div>
+  <div class="section-title">API一覧（5/12本使用）</div>
+  <div class="api-row"><div class="api-endpoint"><span class="api-method method-get">GET</span>/api/artist?id={id}</div><div class="api-desc">作品情報を取得。emailは除外して返す。404は期限切れまたは存在しない。</div></div>
+  <div class="api-row"><div class="api-endpoint"><span class="api-method method-get">GET</span>/api/artist?list=true</div><div class="api-desc">登録済み全作品を新着順で取得（最大100件）。トップページで使用。重複IDは除外。</div></div>
+  <div class="api-row"><div class="api-endpoint"><span class="api-method method-post">POST</span>/api/artist</div><div class="api-desc">作品登録。必須: name・bio・artworkName・price(100円以上)。Redisに90日TTLで保存。</div></div>
+  <div class="api-row"><div class="api-endpoint"><span class="api-method method-post">POST</span>/api/chat</div><div class="api-desc">作家人格AIチャット。artistDataを渡すと作家として回答。visitorLangで9言語自動切替。150字以内。</div></div>
+  <div class="api-row"><div class="api-endpoint"><span class="api-method method-get">GET</span>/api/upload?filename={name}</div><div class="api-desc">R2 Pre-signed URLを発行。.glb→glb/フォルダ、画像→nft/フォルダ。15分有効。CORSはR2で設定。</div></div>
+  <div class="api-row"><div class="api-endpoint"><span class="api-method method-post">POST</span>/api/purchase</div><div class="api-desc">Stripe PaymentIntentを作成してclient_secretを返す。必須: artistId・amount・email。</div></div>
+  <div class="api-row"><div class="api-endpoint"><span class="api-method method-post">POST</span>/api/webhook</div><div class="api-desc">Stripe Webhook。payment_intent.succeeded受信→署名検証→Privy wallet→NFT mint→Resendメール。Stripeには常に200を返す。</div></div>
+</div>
+<div class="section" id="env">
+  <div class="section-label">05 — ENVIRONMENT VARIABLES</div>
+  <div class="section-title">環境変数一覧（Vercel Dashboard設定）</div>
+  <table class="env-table">
+    <tr><td class="env-key">KV_REST_API_URL</td><td class="env-desc">Upstash Redis REST URL</td><td class="env-service">Upstash</td></tr>
+    <tr><td class="env-key">KV_REST_API_TOKEN</td><td class="env-desc">Upstash Redis REST Token</td><td class="env-service">Upstash</td></tr>
+    <tr><td class="env-key">ANTHROPIC_API_KEY</td><td class="env-desc">Claude APIキー</td><td class="env-service">Anthropic</td></tr>
+    <tr><td class="env-key">STRIPE_SECRET_KEY</td><td class="env-desc">Stripeシークレットキー（sk_test_...）</td><td class="env-service">Stripe</td></tr>
+    <tr><td class="env-key">STRIPE_WEBHOOK_SECRET</td><td class="env-desc">Webhook署名シークレット（whsec_...）</td><td class="env-service">Stripe</td></tr>
+    <tr><td class="env-key">PRIVY_APP_ID</td><td class="env-desc">PrivyアプリID</td><td class="env-service">Privy</td></tr>
+    <tr><td class="env-key">PRIVY_SECRET_KEY</td><td class="env-desc">Privyシークレットキー</td><td class="env-service">Privy</td></tr>
+    <tr><td class="env-key">POLYGON_RPC_URL</td><td class="env-desc">Polygon PoS RPC URL</td><td class="env-service">Alchemy等</td></tr>
+    <tr><td class="env-key">POLYGON_CONTRACT_ADDRESS</td><td class="env-desc">ERC-721コントラクトアドレス（香訪流用）</td><td class="env-service">Polygon</td></tr>
+    <tr><td class="env-key">PRIVATE_KEY</td><td class="env-desc">デプロイヤーウォレット秘密鍵（0.5POL以上維持推奨）</td><td class="env-service">MetaMask</td></tr>
+    <tr><td class="env-key">RESEND_API_KEY</td><td class="env-desc">Resend APIキー</td><td class="env-service">Resend</td></tr>
+    <tr><td class="env-key">RESEND_FROM</td><td class="env-desc">noreply@magatokilab.com</td><td class="env-service">Resend</td></tr>
+    <tr><td class="env-key">R2_ACCESS_KEY_ID</td><td class="env-desc">Cloudflare R2アクセスキー</td><td class="env-service">Cloudflare</td></tr>
+    <tr><td class="env-key">R2_SECRET_ACCESS_KEY</td><td class="env-desc">Cloudflare R2シークレットキー</td><td class="env-service">Cloudflare</td></tr>
+    <tr><td class="env-key">R2_ENDPOINT</td><td class="env-desc">https://{accountId}.r2.cloudflarestorage.com</td><td class="env-service">Cloudflare</td></tr>
+    <tr><td class="env-key">R2_BUCKET</td><td class="env-desc">artar-glb</td><td class="env-service">Cloudflare</td></tr>
+    <tr><td class="env-key">R2_PUBLIC_URL</td><td class="env-desc">https://pub-5162ceda92fb4bf7aca56c2066725d33.r2.dev</td><td class="env-service">Cloudflare</td></tr>
+  </table>
+  <div class="warn" style="margin-top:16px;"><strong>PRIVATE_KEY は絶対にGitにコミットしない。</strong>Vercel環境変数にのみ設定すること。</div>
+</div>
+<div class="section" id="manual">
+  <div class="section-label">06 — OPERATION MANUAL</div>
+  <div class="section-title">クリエーター登録手順</div>
+  <div class="step"><div class="step-num">1</div><div class="step-body"><div class="step-title">登録ページにアクセス</div><div class="step-desc">artar-market.vercel.app/register を開く</div></div></div>
+  <div class="step"><div class="step-num">2</div><div class="step-body"><div class="step-title">作家情報を入力（必須）</div><div class="step-desc">作家名・ひとこと自己紹介を入力。自己紹介はAIチャットの人格に使われる。</div></div></div>
+  <div class="step"><div class="step-num">3</div><div class="step-body"><div class="step-title">作品情報を入力（必須）</div><div class="step-desc">作品名・販売価格（100円以上）を入力。作品画像URLは外部URL（SNS・imgur等）を貼る。</div></div></div>
+  <div class="step"><div class="step-num">4</div><div class="step-body"><div class="step-title">ファイルをアップロード（任意）</div><div class="step-desc">3Dモデル（.glb・50MB以内）とNFT証明画像（jpg/png/webp・10MB以内）をアップロード。未アップロードの場合はキャラデフォルト画像が使用される。</div></div></div>
+  <div class="step"><div class="step-num">5</div><div class="step-body"><div class="step-title">キャラクターを選択</div><div class="step-desc">空蝉 / 夕顔 / Dr.Ohma / Aciel から選択。GLBをアップロードした場合はそちらが優先表示される。</div></div></div>
+  <div class="step"><div class="step-num">6</div><div class="step-body"><div class="step-title">登録完了 → QRコードを印刷</div><div class="step-desc">ARページURLとQRコードが発行される。QRコードを印刷してフリマブースに設置する。</div>
+  <span class="step-code">発行URL: https://artar-market.vercel.app/artist/{id}
+データ保存期間: 90日（Upstash Redis TTL）</span></div></div>
+  <div style="margin-top:32px;margin-bottom:16px;font-size:16px;font-weight:800;color:var(--sepia);">テスト・デバッグ情報</div>
+  <span class="step-code">【Stripeテストカード】
+カード番号: 4242 4242 4242 4242
+有効期限: 12/34 / CVC: 123 / 名義: Test User
+
+【Polygon ウォレット残高】
+1回のmintで約0.06〜0.1 POL消費。0.5 POL以上を維持推奨。
+Polygonscan でアドレス検索して確認。
+
+【Upstashデータ確認・削除】
+Upstash Console > artar DB > Data Browser
+artist: で始まるキーがアーティストデータ
+artist_ids がID一覧リスト（90日で自動削除）
+
+【Vercelデプロイ確認】
+Vercel Dashboard > Deployments > Functions でAPIログ確認</span>
+</div>
+<div class="section" id="roadmap">
+  <div class="section-label">07 — ROADMAP</div>
+  <div class="section-title">開発ロードマップ</div>
+  <div class="roadmap">
+    <div class="roadmap-card phase-done">
+      <div class="phase-label">PHASE 1-2 — DONE</div>
+      <div class="phase-title">基盤構築</div>
+      <div class="phase-items">✓ 作品登録フォーム<br>✓ ARページ（Three.js）<br>✓ AIチャット（9言語）<br>✓ GLBアップロード（R2）<br>✓ NFT画像アップロード<br>✓ キャラ4体・オーラエフェクト<br>✓ トップページ一覧</div>
+    </div>
+    <div class="roadmap-card phase-done">
+      <div class="phase-label">PHASE 3 — DONE</div>
+      <div class="phase-title">決済・NFT</div>
+      <div class="phase-items">✓ Stripe Elements決済<br>✓ NFT mint（Polygon）<br>✓ Privy自動ウォレット<br>✓ 購入証明メール<br>✓ NFTデフォルト画像<br>✓ 固定価格方式<br>✓ Polygonscanリンク</div>
+    </div>
+    <div class="roadmap-card phase-now">
+      <div class="phase-label">PHASE 4 — NEXT</div>
+      <div class="phase-title">本番化・改善</div>
+      <div class="phase-items">□ 管理者ダッシュボード<br>□ Dr.Ohma/Aciel NFT画像<br>□ Stripe本番切替<br>□ Polygon Mainnet<br>□ 購入済み表示<br>□ POL自動補充の仕組み</div>
+    </div>
+    <div class="roadmap-card phase-next">
+      <div class="phase-label">PHASE 5 — FUTURE</div>
+      <div class="phase-title">拡張</div>
+      <div class="phase-items">□ Stripe Connect自動送金<br>□ 作家/作品分離（B案）<br>□ 複数作品管理<br>□ 作品検索・フィルター<br>□ OpenSea対応<br>□ データ保存期間延長</div>
+    </div>
+  </div>
+</div>
+<footer>ArtAR System Documentation v1.0 — MAGATOKI Laboratory — 2026.05</footer>
+</body>
+</html>

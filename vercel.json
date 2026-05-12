@@ -1,7 +1,13 @@
 {
   "outputDirectory": ".",
+  "functions": {
+    "api/upload.js": {
+      "maxDuration": 60
+    }
+  },
   "routes": [
     { "src": "/register", "dest": "/register.html" },
+    { "src": "/admin",    "dest": "/admin.html" },
     { "src": "/artist/([^/]+)", "dest": "/artist/index.html" },
     { "src": "/(.*)", "dest": "/$1" }
   ]
