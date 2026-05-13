@@ -56,13 +56,19 @@ export default async function handler(req, res) {
 
     console.log(`[tts] mimeType=${finalMime} dataLen=${finalB64.length}`);
 
-    // PCM/L16 は常にWAVヘッダーを付与（ブラウザで再生できるように）
-    if (finalMime.includes('L16') || finalMime.includes('pcm') || finalMime.includes('raw')) {
+    // audio/l16 または audio/L16（PCM生データ）はWAVヘッダーを付与
+    if (/l16|pcm|raw/i.test(finalMime)) {
+      // mimeTypeからrate・channelsを取得（例: audio/l16; rate=24000; channels=1）
+      const rateMatch     = finalMime.match(/rate=(\d+)/i);
+      const channelsMatch = finalMime.match(/channels=(\d+)/i);
+      const sampleRate  = rateMatch     ? parseInt(rateMatch[1])     : 24000;
+      const numChannels = channelsMatch ? parseInt(channelsMatch[1]) : 1;
+
       const pcmBuffer = Buffer.from(finalB64, 'base64');
-      const wavBuffer = addWavHeader(pcmBuffer, 24000, 1, 16);
+      const wavBuffer = addWavHeader(pcmBuffer, sampleRate, numChannels, 16);
       finalB64  = wavBuffer.toString('base64');
       finalMime = 'audio/wav';
-      console.log(`[tts] PCM→WAV変換完了 wavLen=${finalB64.length}`);
+      console.log(`[tts] PCM→WAV変換完了 rate=${sampleRate} ch=${numChannels}`);
     }
 
     console.log(`[tts] 完了 char=${character} voice=${cfg.voice} lang=${lang}`);
