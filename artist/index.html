@@ -684,6 +684,7 @@ async function speakTTS(text, lang) {
     if (!data.audioBase64) throw new Error('No audio data');
 
     const ctx = getAudioCtx();
+    console.log(`[TTS] mimeType=${data.mimeType} base64len=${data.audioBase64.length}`);
     const binary = atob(data.audioBase64);
     const bytes  = new Uint8Array(binary.length);
     for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
