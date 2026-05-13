@@ -1,14 +1,19 @@
 // api/tts.js
-// Gemini TTS - @google/genai SDK方式
+// TTS API - ElevenLabs（空蝉・夕顔・Aciel）+ Gemini TTS（Dr.Ohma）
 // POST /api/tts { text, lang, character }
 
 import { GoogleGenAI } from '@google/genai';
 
-const CHAR_VOICE = {
-  utsusemi: { voice: 'Kore' },
-  yugao:    { voice: 'Aoede' },
-  ohma:     { voice: 'Charon' },
-  aciel:    { voice: 'Puck' },
+// ElevenLabs Voice ID
+const ELEVENLABS_VOICES = {
+  utsusemi: 'UpdXxdgP0QjvNsFGDFgb',
+  yugao:    'Xv0eErzt5m8SIaLyDz96',
+  aciel:    'zO6UmrwcDdqU3tqupELE',
+};
+
+// Gemini TTS（Dr.Ohma用）
+const GEMINI_VOICE = {
+  ohma: 'Charon',
 };
 
 export default async function handler(req, res) {
@@ -18,16 +23,74 @@ export default async function handler(req, res) {
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
-  const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
-  if (!GEMINI_API_KEY) return res.status(500).json({ error: 'GEMINI_API_KEY が未設定です' });
-
   const { text = '', lang = 'ja', character = 'utsusemi' } = req.body;
   if (!text.trim()) return res.status(400).json({ error: 'text が空です' });
 
-  const cfg = CHAR_VOICE[character] || CHAR_VOICE.utsusemi;
+  // ElevenLabsキャラか判定
+  const elevenVoiceId = ELEVENLABS_VOICES[character];
+
+  if (elevenVoiceId) {
+    return await speakElevenLabs(req, res, text, elevenVoiceId, character, lang);
+  } else {
+    return await speakGemini(req, res, text, character, lang);
+  }
+}
+
+// ── ElevenLabs TTS ────────────────────────────────────────────────
+async function speakElevenLabs(req, res, text, voiceId, character, lang) {
+  const apiKey = process.env.ELEVENLABS_API_KEY;
+  if (!apiKey) return res.status(500).json({ error: 'ELEVENLABS_API_KEY が未設定です' });
 
   try {
-    const ai = new GoogleGenAI({ apiKey: GEMINI_API_KEY });
+    const response = await fetch(
+      `https://api.elevenlabs.io/v1/text-to-speech/${voiceId}`,
+      {
+        method: 'POST',
+        headers: {
+          'xi-api-key': apiKey,
+          'Content-Type': 'application/json',
+          'Accept': 'audio/mpeg',
+        },
+        body: JSON.stringify({
+          text,
+          model_id: 'eleven_multilingual_v2',
+          voice_settings: {
+            stability: 0.5,
+            similarity_boost: 0.75,
+            style: 0.3,
+            use_speaker_boost: true,
+          },
+        }),
+      }
+    );
+
+    if (!response.ok) {
+      const errText = await response.text();
+      console.error('[tts/elevenlabs] エラー:', response.status, errText);
+      return res.status(502).json({ error: `ElevenLabs エラー: ${response.status}` });
+    }
+
+    const arrayBuffer = await response.arrayBuffer();
+    const audioB64 = Buffer.from(arrayBuffer).toString('base64');
+
+    console.log(`[tts/elevenlabs] 完了 char=${character} voiceId=${voiceId} lang=${lang}`);
+    return res.status(200).json({ audioBase64: audioB64, mimeType: 'audio/mpeg' });
+
+  } catch (err) {
+    console.error('[tts/elevenlabs] エラー:', err.message);
+    return res.status(500).json({ error: err.message });
+  }
+}
+
+// ── Gemini TTS（Dr.Ohma用） ───────────────────────────────────────
+async function speakGemini(req, res, text, character, lang) {
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey) return res.status(500).json({ error: 'GEMINI_API_KEY が未設定です' });
+
+  const voiceName = GEMINI_VOICE[character] || 'Charon';
+
+  try {
+    const ai = new GoogleGenAI({ apiKey });
 
     const response = await ai.models.generateContent({
       model: 'gemini-3.1-flash-tts-preview',
@@ -35,9 +98,7 @@ export default async function handler(req, res) {
       config: {
         responseModalities: ['AUDIO'],
         speechConfig: {
-          voiceConfig: {
-            prebuiltVoiceConfig: { voiceName: cfg.voice },
-          },
+          voiceConfig: { prebuiltVoiceConfig: { voiceName } },
         },
       },
     });
@@ -47,35 +108,28 @@ export default async function handler(req, res) {
     );
 
     if (!audioPart?.inlineData?.data) {
-      console.error('[tts] 音声データなし');
       return res.status(502).json({ error: '音声データが取得できませんでした' });
     }
 
     let finalB64  = audioPart.inlineData.data;
     let finalMime = audioPart.inlineData.mimeType;
 
-    console.log(`[tts] mimeType=${finalMime} dataLen=${finalB64.length}`);
-
-    // audio/l16 または audio/L16（PCM生データ）はWAVヘッダーを付与
     if (/l16|pcm|raw/i.test(finalMime)) {
-      // mimeTypeからrate・channelsを取得（例: audio/l16; rate=24000; channels=1）
       const rateMatch     = finalMime.match(/rate=(\d+)/i);
       const channelsMatch = finalMime.match(/channels=(\d+)/i);
       const sampleRate  = rateMatch     ? parseInt(rateMatch[1])     : 24000;
       const numChannels = channelsMatch ? parseInt(channelsMatch[1]) : 1;
-
-      const pcmBuffer = Buffer.from(finalB64, 'base64');
-      const wavBuffer = addWavHeader(pcmBuffer, sampleRate, numChannels, 16);
+      const pcmBuffer   = Buffer.from(finalB64, 'base64');
+      const wavBuffer   = addWavHeader(pcmBuffer, sampleRate, numChannels, 16);
       finalB64  = wavBuffer.toString('base64');
       finalMime = 'audio/wav';
-      console.log(`[tts] PCM→WAV変換完了 rate=${sampleRate} ch=${numChannels}`);
     }
 
-    console.log(`[tts] 完了 char=${character} voice=${cfg.voice} lang=${lang}`);
+    console.log(`[tts/gemini] 完了 char=${character} voice=${voiceName} lang=${lang}`);
     return res.status(200).json({ audioBase64: finalB64, mimeType: finalMime });
 
   } catch (err) {
-    console.error('[tts] エラー:', err.message);
+    console.error('[tts/gemini] エラー:', err.message);
     return res.status(500).json({ error: err.message });
   }
 }
