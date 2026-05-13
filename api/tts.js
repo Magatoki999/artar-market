@@ -54,11 +54,15 @@ export default async function handler(req, res) {
     let finalB64  = audioPart.inlineData.data;
     let finalMime = audioPart.inlineData.mimeType;
 
-    if (finalMime.includes('L16') || finalMime.includes('pcm')) {
+    console.log(`[tts] mimeType=${finalMime} dataLen=${finalB64.length}`);
+
+    // PCM/L16 は常にWAVヘッダーを付与（ブラウザで再生できるように）
+    if (finalMime.includes('L16') || finalMime.includes('pcm') || finalMime.includes('raw')) {
       const pcmBuffer = Buffer.from(finalB64, 'base64');
       const wavBuffer = addWavHeader(pcmBuffer, 24000, 1, 16);
       finalB64  = wavBuffer.toString('base64');
       finalMime = 'audio/wav';
+      console.log(`[tts] PCM→WAV変換完了 wavLen=${finalB64.length}`);
     }
 
     console.log(`[tts] 完了 char=${character} voice=${cfg.voice} lang=${lang}`);
