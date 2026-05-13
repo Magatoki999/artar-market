@@ -824,7 +824,6 @@ document.getElementById('btnStartAR').addEventListener('click', async () => {
   }
 });
 
-// === 🔊 音声挨拶ボタン ===
 document.getElementById('btnVoice').addEventListener('click', () => {
   const btn = document.getElementById('btnVoice');
   const character = artistData?.character || 'utsusemi';
@@ -841,17 +840,23 @@ let chatHistory = [];
 const visitorLang = navigator.language || 'ja';
 const langBase = visitorLang.toLowerCase().split('-')[0];
 const LANG_BADGE = { ja:'日本語', en:'EN', zh:'中文', ko:'한국어', fr:'FR', de:'DE', es:'ES', it:'IT', th:'TH' };
-const GREETING = {
-  ja: `こんにちは。${artistData?.name || ''}です。作品についてなんでも聞いてください。`,
-  en: `Hi! I'm ${artistData?.name || 'the artist'}. Feel free to ask me anything about my work!`,
-  zh: `你好！我是${artistData?.name || ''}。欢迎询问关于我作品的任何问题！`,
-  ko: `안녕하세요! ${artistData?.name || ''}입니다. 작품에 대해 무엇이든 물어보세요!`,
-  fr: `Bonjour ! Je suis ${artistData?.name || ''}. N'hésitez pas à me poser des questions sur mon travail !`,
-  de: `Hallo! Ich bin ${artistData?.name || ''}. Fragen Sie mich gerne alles über meine Arbeit!`,
-  es: `¡Hola! Soy ${artistData?.name || ''}. ¡Pregúntame lo que quieras sobre mi trabajo!`,
-  it: `Ciao! Sono ${artistData?.name || ''}. Chiedimi pure tutto sul mio lavoro!`,
-  th: `สวัสดี! ฉัน${artistData?.name || ''}ค่ะ ถามเกี่ยวกับงานของฉันได้เลยนะคะ`,
-};
+
+// GREETINGはartistData取得後に動的生成
+function getGreeting(lang) {
+  const name = artistData?.name || '';
+  const map = {
+    ja: `こんにちは。${name}です。作品についてなんでも聞いてください。`,
+    en: `Hi! I'm ${name || 'the artist'}. Feel free to ask me anything about my work!`,
+    zh: `你好！我是${name}。欢迎询问关于我作品的任何问题！`,
+    ko: `안녕하세요! ${name}입니다. 작품에 대해 무엇이든 물어보세요!`,
+    fr: `Bonjour ! Je suis ${name}. N'hésitez pas à me poser des questions sur mon travail !`,
+    de: `Hallo! Ich bin ${name}. Fragen Sie mich gerne alles über meine Arbeit!`,
+    es: `¡Hola! Soy ${name}. ¡Pregúntame lo que quieras sobre mi trabajo!`,
+    it: `Ciao! Sono ${name}. Chiedimi pure tutto sul mio lavoro!`,
+    th: `สวัสดี! ฉัน${name}ค่ะ ถามเกี่ยวกับงานของฉันได้เลยนะคะ`,
+  };
+  return map[lang] || map.en;
+}
 
 const badgeEl = document.getElementById('langBadge');
 if (badgeEl && langBase !== 'ja') {
@@ -862,9 +867,8 @@ if (badgeEl && langBase !== 'ja') {
 document.getElementById('btnChat').addEventListener('click', () => {
   document.getElementById('chatPanel').classList.add('open');
   if (chatMessages.children.length === 0) {
-    const greeting = GREETING[langBase] || GREETING.en;
+    const greeting = getGreeting(langBase);
     addAIMessage(greeting);
-    // チャットパネルを開いたときも音声挨拶
     speakTTS(greeting, langBase);
   }
 });
