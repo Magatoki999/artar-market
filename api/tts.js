@@ -53,7 +53,8 @@ async function speakElevenLabs(req, res, text, voiceId, character, lang) {
         },
         body: JSON.stringify({
           text,
-          model_id: 'eleven_multilingual_v2',
+          model_id: 'eleven_flash_v2_5',
+          language_code: lang === 'ja' ? 'ja' : lang === 'zh' ? 'zh' : lang === 'ko' ? 'ko' : undefined,
           voice_settings: {
             stability: 0.5,
             similarity_boost: 0.75,
