@@ -99,10 +99,12 @@ export default async function handler(req, res) {
     try {
       const {
         name,
+        nameReading = '',
         bio,
         style       = '',
         artworkUrl  = '',
         glbUrl      = '',
+        glbUrl2     = '',
         nftImageUrl = '',
         artworkName = '',
         price       = 0,
@@ -111,6 +113,8 @@ export default async function handler(req, res) {
         instagram   = '',
         email       = '',
         character   = 'utsusemi',
+        character2  = '',
+        dualMode    = false,
       } = req.body;
 
       if (!name || !bio) {
@@ -126,9 +130,11 @@ export default async function handler(req, res) {
       const id = Math.random().toString(36).slice(2, 10);
 
       const artistData = {
-        id, name, bio, style, artworkUrl, glbUrl, nftImageUrl,
+        id, name, nameReading, bio, style, artworkUrl,
+        glbUrl, glbUrl2, nftImageUrl,
         artworkName, price: Number(price), genre,
-        twitter, instagram, email, character,
+        twitter, instagram, email,
+        character, character2, dualMode: Boolean(dualMode),
         createdAt: new Date().toISOString(),
       };
 
