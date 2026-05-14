@@ -167,7 +167,24 @@
   }
   .btn-voice:active { background: rgba(255,255,255,0.25); }
   .btn-voice.speaking { background: rgba(212,175,55,0.25); border-color: rgba(212,175,55,0.5); }
-  #nftModal {
+
+  /* === デュアルモード吹き出し === */
+  .speech-bubble {
+    position: fixed; bottom: 140px; max-width: 42vw;
+    background: rgba(13,10,6,0.88); border: 1px solid rgba(200,169,110,0.4);
+    border-radius: 12px; padding: 10px 14px;
+    font-family: 'Shippori Mincho', serif; font-size: 13px;
+    color: rgba(255,255,255,0.85); line-height: 1.7;
+    backdrop-filter: blur(8px); opacity: 0; transform: translateY(10px);
+    transition: opacity 0.3s, transform 0.3s; pointer-events: none; z-index: 30;
+  }
+  .speech-bubble.visible { opacity: 1; transform: translateY(0); }
+  .bubble-1 { left: 12px; }
+  .bubble-2 { right: 12px; }
+  .bubble-name {
+    display: block; font-size: 10px; color: rgba(200,169,110,0.7);
+    letter-spacing: 0.1em; margin-bottom: 4px;
+  }
     display: none; position: fixed; inset: 0; z-index: 40;
     background: rgba(0,0,0,0.92); align-items: flex-end; justify-content: center;
   }
@@ -602,24 +619,19 @@ function initThreeAR() {
     modelScene.rotation.y = charCfg.rotY ?? 0;
     root.add(modelScene);
     root.scale.setScalar(charCfg.scale);
-    root.position.set(...charCfg.pos);
+    // デュアルモード時は左側に配置
+    const posX = artistData?.dualMode ? -0.55 : 0;
+    root.position.set(posX, charCfg.pos[1], charCfg.pos[2]);
     charModel = root;
-
-    // 浮遊・リアクション用のベース値を保存
     charModel.userData.baseY     = charCfg.pos[1];
     charModel.userData.baseScale = charCfg.scale;
-
-    // 視線追従用ヘッドボーンを探す
     charHead = findHeadBone(modelScene);
-
-    // アニメーションがあれば全て再生
     if (gltf.animations && gltf.animations.length > 0) {
       mixer = new THREE.AnimationMixer(modelScene);
       gltf.animations.forEach((clip) => mixer.clipAction(clip).play());
     }
   }, undefined, (err) => {
     console.warn('[ArtAR] GLB読み込み失敗、フォールバック表示:', err);
-    // GLB読み込み失敗時はシンプルな光球でフォールバック
     const geo = new THREE.SphereGeometry(0.15, 16, 16);
     const mat = new THREE.MeshBasicMaterial({ color: charCfg.particle, transparent: true, opacity: 0.7 });
     const fallback = new THREE.Mesh(geo, mat);
@@ -630,6 +642,42 @@ function initThreeAR() {
 
   // オーラ・輪郭発光エフェクト
   buildAura(root, charCfg);
+
+  // ── デュアルモード：2体目GLBを読み込む ────────────────────────
+  if (artistData?.dualMode && artistData?.character2) {
+    const charCfg2 = CHAR_CONFIG[artistData.character2] || CHAR_CONFIG.yugao;
+    const glbSrc2  = artistData?.glbUrl2 || charCfg2.glb;
+
+    const root2 = new THREE.Group();
+    scene.add(root2);
+
+    gltfLoader.load(glbSrc2, (gltf) => {
+      const modelScene2 = gltf.scene;
+      modelScene2.rotation.y = charCfg2.rotY ?? 0;
+      root2.add(modelScene2);
+      root2.scale.setScalar(charCfg2.scale);
+      root2.position.set(0.55, charCfg2.pos[1], charCfg2.pos[2]);
+      charModel2 = root2;
+      charModel2.userData.baseY     = charCfg2.pos[1];
+      charModel2.userData.baseScale = charCfg2.scale;
+      charHead2 = findHeadBone(modelScene2);
+      if (gltf.animations && gltf.animations.length > 0) {
+        mixer2 = new THREE.AnimationMixer(modelScene2);
+        gltf.animations.forEach((clip) => mixer2.clipAction(clip).play());
+      }
+    }, undefined, () => {
+      const geo = new THREE.SphereGeometry(0.15, 16, 16);
+      const mat = new THREE.MeshBasicMaterial({ color: charCfg2.particle, transparent: true, opacity: 0.7 });
+      const fb  = new THREE.Mesh(geo, mat);
+      fb.position.set(0.55, charCfg2.pos[1] + 0.5, charCfg2.pos[2]);
+      root2.add(fb);
+    });
+
+    buildAura(root2, charCfg2);
+
+    // 自発会話を開始
+    setTimeout(() => startSpontaneousConversation(), 3000);
+  }
 
   window.addEventListener('resize', () => {
     camera.aspect = window.innerWidth / window.innerHeight;
@@ -645,9 +693,20 @@ const clock = new THREE.Clock();
 // === TTS・接客強化 ===
 let audioCtx = null;
 let ttsPlaying = false;
-let reactionPulse = 0;       // チャット受信時のパルス強度
-let lookAtTarget = new THREE.Vector3(0, 0, 2.8); // 視線追従ターゲット
-let charHead = null;          // 視線追従用ボーン or root参照
+let reactionPulse = 0;
+let reactionPulse2 = 0;
+let lookAtTarget = new THREE.Vector3(0, 0, 2.8);
+let charHead = null;
+let charModel2 = null;   // 2体目
+let charHead2  = null;
+let mixer2     = null;
+let auraRings2 = [];
+let auraOrbs2  = [];
+let auraGlow2  = null;
+
+// 自発会話制御
+let spontaneousTimer = null;
+let isSpontaneousRunning = false;
 
 // AudioContext 初期化（ユーザー操作後に呼ぶ）
 function getAudioCtx() {
@@ -672,8 +731,104 @@ async function speakTTS(text, lang) {
   if (ttsPlaying) return;
   ttsPlaying = true;
   duckBGM(true);
+  const character = artistData?.character || 'utsusemi';
+  speakTTSWithCallback(text, lang, character, () => {
+    ttsPlaying = false;
+    duckBGM(false);
+  });
+}
+
+// チャット受信時のリアクション
+function triggerReaction(target = 1) {
+  if (target === 2) reactionPulse2 = 1.0;
+  else reactionPulse = 1.0;
+}
+
+// === デュアルモード：自発会話 =====================================
+async function startSpontaneousConversation() {
+  if (isSpontaneousRunning) return;
+  isSpontaneousRunning = true;
+
   try {
-    const character = artistData?.character || 'utsusemi';
+    const res = await fetch('/api/chat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        messages: [],
+        visitorLang: navigator.language || 'ja',
+        artistData: {
+          name:       artistData.name,
+          nameReading: artistData.nameReading || '',
+          bio:        artistData.bio,
+          style:      artistData.style,
+          artworkName: artistData.artworkName,
+          character:  artistData.character,
+          character2: artistData.character2,
+        },
+        dualMode: true,
+        trigger: 'spontaneous',
+      }),
+    });
+    const data = await res.json();
+    if (data.dialogue) {
+      await playDialogue(data.dialogue);
+    }
+  } catch (err) {
+    console.warn('[dual] 自発会話エラー:', err.message);
+  }
+
+  isSpontaneousRunning = false;
+
+  // 30〜60秒後に次の会話
+  const nextDelay = (30 + Math.random() * 30) * 1000;
+  spontaneousTimer = setTimeout(() => startSpontaneousConversation(), nextDelay);
+}
+
+// ダイアログを順次再生（テキスト表示 + TTS）
+async function playDialogue(dialogue) {
+  const charA = artistData.character  || 'utsusemi';
+  const charB = artistData.character2 || 'yugao';
+  const nameA = getCharName(charA);
+  const nameB = getCharName(charB);
+
+  for (const line of dialogue) {
+    const isA = line.character === charA || line.speaker === nameA;
+    const targetNum = isA ? 1 : 2;
+
+    // 吹き出し表示
+    showSpeechBubble(line.text, targetNum, line.speaker);
+    triggerReaction(targetNum);
+
+    // TTS再生（終わるまで待機）
+    await speakTTSAsync(line.text, langBase, line.character || (isA ? charA : charB));
+
+    // セリフ間の間（0.5秒）
+    await sleep(500);
+  }
+
+  // 吹き出しを消す
+  setTimeout(() => hideSpeechBubbles(), 3000);
+}
+
+function getCharName(character) {
+  const map = { utsusemi:'空蝉', yugao:'夕顔', ohma:'Dr.Ohma', aciel:'Aciel' };
+  return map[character] || character;
+}
+
+function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+// TTS再生（Promise版：再生完了まで待機）
+function speakTTSAsync(text, lang, character) {
+  return new Promise((resolve) => {
+    const originalOnEnd = () => resolve();
+    speakTTSWithCallback(text, lang, character, originalOnEnd);
+  });
+}
+
+// コールバック付きTTS
+async function speakTTSWithCallback(text, lang, character, onEnd) {
+  if (!text) { onEnd(); return; }
+  try {
     const res = await fetch('/api/tts', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -694,28 +849,44 @@ async function speakTTS(text, lang) {
     source.buffer = audioBuffer;
     source.connect(ctx.destination);
     source.start();
-    source.onended = () => { ttsPlaying = false; duckBGM(false); };
+    source.onended = onEnd;
   } catch (err) {
-    console.warn('[TTS Gemini失敗、Web Speech APIにフォールバック]', err.message);
+    console.warn('[TTS]', err.message);
     // フォールバック：Web Speech API
-    ttsPlaying = false;
-    duckBGM(false);
-    if (!window.speechSynthesis) return;
-    window.speechSynthesis.cancel();
-    const utter = new SpeechSynthesisUtterance(text);
-    utter.lang = lang === 'ja' ? 'ja-JP' : lang === 'zh' ? 'zh-CN' : lang === 'ko' ? 'ko-KR' : 'en-US';
-    const character = artistData?.character || 'utsusemi';
-    utter.rate  = (character === 'utsusemi' || character === 'yugao') ? 0.85 : 1.0;
-    utter.pitch = (character === 'utsusemi' || character === 'yugao') ? 1.15 : 0.9;
-    utter.onend = () => { ttsPlaying = false; };
-    window.speechSynthesis.speak(utter);
-    ttsPlaying = true;
+    if (window.speechSynthesis) {
+      window.speechSynthesis.cancel();
+      const utter = new SpeechSynthesisUtterance(text);
+      utter.lang  = lang === 'ja' ? 'ja-JP' : 'en-US';
+      utter.rate  = (character === 'utsusemi' || character === 'yugao') ? 0.85 : 1.0;
+      utter.pitch = (character === 'utsusemi' || character === 'yugao') ? 1.15 : 0.9;
+      utter.onend = onEnd;
+      utter.onerror = onEnd;
+      window.speechSynthesis.speak(utter);
+    } else {
+      onEnd();
+    }
   }
 }
 
-// チャット受信時のリアクション
-function triggerReaction() {
-  reactionPulse = 1.0;
+// 吹き出し表示
+function showSpeechBubble(text, target, speakerName) {
+  const id = target === 1 ? 'bubble1' : 'bubble2';
+  let bubble = document.getElementById(id);
+  if (!bubble) {
+    bubble = document.createElement('div');
+    bubble.id = id;
+    bubble.className = 'speech-bubble bubble-' + target;
+    document.body.appendChild(bubble);
+  }
+  bubble.innerHTML = `<span class="bubble-name">${speakerName}</span>${text}`;
+  bubble.classList.add('visible');
+}
+
+function hideSpeechBubbles() {
+  ['bubble1','bubble2'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.classList.remove('visible');
+  });
 }
 
 // 視線追従：GLBのhead ボーンを探す
@@ -791,8 +962,30 @@ function animate() {
   if (auraGlow) {
     auraGlow.material.opacity = 0.10 + 0.08 * Math.sin(t * 1.2);
   }
-  if (mixer) {
-    mixer.update(delta);
+  if (mixer) mixer.update(delta);
+  if (mixer2) mixer2.update(delta);
+
+  // 2体目のアニメーション
+  if (charModel2) {
+    charModel2.position.y = charModel2.userData.baseY + Math.sin(t * 0.7 + 1.5) * 0.04;
+    charModel2.rotation.z = Math.sin(t * 0.4 + 1.0) * 0.015;
+    if (reactionPulse2 > 0) {
+      const pulse = 1.0 + Math.sin(reactionPulse2 * Math.PI) * 0.06;
+      charModel2.scale.setScalar(charModel2.userData.baseScale * pulse);
+      reactionPulse2 = Math.max(0, reactionPulse2 - delta * 2.5);
+    } else {
+      charModel2.scale.setScalar(charModel2.userData.baseScale);
+    }
+    if (charHead2) {
+      const target2 = new THREE.Vector3();
+      camera.getWorldPosition(target2);
+      const headWorld2 = new THREE.Vector3();
+      charHead2.getWorldPosition(headWorld2);
+      const dir2 = target2.sub(headWorld2).normalize();
+      const angle2 = Math.atan2(dir2.x, dir2.z);
+      charHead2.rotation.y += (angle2 * 0.3 - charHead2.rotation.y) * 0.05;
+      charHead2.rotation.y = Math.max(-0.5, Math.min(0.5, charHead2.rotation.y));
+    }
   }
   renderer.render(scene, camera);
 }
@@ -902,6 +1095,7 @@ async function sendChat() {
   chatHistory.push({ role: 'user', content: text });
 
   const loadingMsg = addAIMessage('...', true);
+  const isDual = artistData?.dualMode && artistData?.character2;
 
   try {
     const res = await fetch('/api/chat', {
@@ -910,26 +1104,44 @@ async function sendChat() {
       body: JSON.stringify({
         messages: chatHistory.slice(-10),
         visitorLang: navigator.language || 'ja',
-        artistData: artistData ? {
-          name: artistData.name,
-          bio: artistData.bio,
-          style: artistData.style,
-          genre: artistData.genre,
-          character: artistData.character,
-          priceMin: artistData.priceMin,
-          priceMax: artistData.priceMax,
-        } : null,
+        artistData: {
+          name:        artistData.name,
+          nameReading: artistData.nameReading || '',
+          bio:         artistData.bio,
+          style:       artistData.style,
+          genre:       artistData.genre,
+          artworkName: artistData.artworkName,
+          character:   artistData.character,
+          character2:  artistData.character2 || '',
+        },
+        dualMode: isDual || false,
+        trigger: 'user',
       }),
     });
     const data = await res.json();
-    const reply = data.reply || 'うまく答えられませんでした。';
-    loadingMsg.textContent = reply;
-    loadingMsg.classList.remove('loading');
-    chatHistory.push({ role: 'assistant', content: reply });
 
-    // TTS で返答を音声再生 + リアクション
-    triggerReaction();
-    speakTTS(reply, langBase);
+    if (isDual && data.dialogue) {
+      // デュアルモード：会話を順次表示
+      loadingMsg.remove();
+      // 自発会話を一時停止
+      if (spontaneousTimer) { clearTimeout(spontaneousTimer); spontaneousTimer = null; }
+      await playDialogue(data.dialogue);
+      // チャット履歴にも追加
+      data.dialogue.forEach(line => {
+        chatHistory.push({ role: 'assistant', content: `${line.speaker}: ${line.text}` });
+        addAIMessage(`${line.speaker}：${line.text}`);
+      });
+      // 60秒後に自発会話再開
+      spontaneousTimer = setTimeout(() => startSpontaneousConversation(), 60000);
+    } else {
+      // シングルモード
+      const reply = data.reply || 'うまく答えられませんでした。';
+      loadingMsg.textContent = reply;
+      loadingMsg.classList.remove('loading');
+      chatHistory.push({ role: 'assistant', content: reply });
+      triggerReaction(1);
+      speakTTS(reply, langBase);
+    }
   } catch {
     loadingMsg.textContent = 'エラーが発生しました。もう一度お試しください。';
     loadingMsg.classList.remove('loading');
