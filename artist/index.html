@@ -586,7 +586,7 @@ function initThreeAR() {
       const h = 1.8;
       const w = h * aspect;
       const geo = new THREE.PlaneGeometry(w, h);
-      const mat = new THREE.MeshBasicMaterial({ map: tex, transparent: true, opacity: 0.55, side: THREE.DoubleSide });
+      const mat = new THREE.MeshBasicMaterial({ map: tex, transparent: true, opacity: 0.85, side: THREE.DoubleSide });
       artPlane = new THREE.Mesh(geo, mat);
       artPlane.position.set(0, 0.1, -0.6);
       scene.add(artPlane);

@@ -804,7 +804,13 @@ document.getElementById('glbFile2').addEventListener('change', async function() 
 
 // --- キャラ選択 ---
 document.getElementById('charGrid').addEventListener('change', function(e) {
-  document.querySelectorAll('.char-option').forEach(el => el.classList.remove('selected'));
+  document.querySelectorAll('#charGrid .char-option').forEach(el => el.classList.remove('selected'));
+  e.target.closest('.char-option').classList.add('selected');
+});
+
+// --- キャラ2選択（ダブルモード）---
+document.getElementById('charGrid2').addEventListener('change', function(e) {
+  document.querySelectorAll('#charGrid2 .char-option').forEach(el => el.classList.remove('selected'));
   e.target.closest('.char-option').classList.add('selected');
 });
 

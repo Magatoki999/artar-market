@@ -16,6 +16,25 @@ const GEMINI_VOICE = {
   ohma: 'Charon',
 };
 
+// テキスト前処理（読み間違い対策）
+function preprocessText(text, lang) {
+  if (lang !== 'ja') return text;
+  return text
+    // アルファベット略語をスペース区切りに（例：AR→エーアール的な読みを促す）
+    .replace(/\bAR\b/g, 'エーアール')
+    .replace(/\bNFT\b/g, 'エヌエフティー')
+    .replace(/\bAI\b/g, 'エーアイ')
+    .replace(/\bURL\b/g, 'ユーアールエル')
+    .replace(/\bQR\b/g, 'キューアール')
+    // 記号除去
+    .replace(/[【】「」『』〈〉《》]/g, '')
+    .replace(/…/g, '。')
+    .replace(/〜/g, 'から')
+    // 半角数字＋円
+    .replace(/(\d+)円/g, (_, n) => `${n}円`)
+    .trim();
+}
+
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
@@ -26,13 +45,13 @@ export default async function handler(req, res) {
   const { text = '', lang = 'ja', character = 'utsusemi' } = req.body;
   if (!text.trim()) return res.status(400).json({ error: 'text が空です' });
 
-  // ElevenLabsキャラか判定
+  const processedText = preprocessText(text, lang);
   const elevenVoiceId = ELEVENLABS_VOICES[character];
 
   if (elevenVoiceId) {
-    return await speakElevenLabs(req, res, text, elevenVoiceId, character, lang);
+    return await speakElevenLabs(req, res, processedText, elevenVoiceId, character, lang);
   } else {
-    return await speakGemini(req, res, text, character, lang);
+    return await speakGemini(req, res, processedText, character, lang);
   }
 }
 
