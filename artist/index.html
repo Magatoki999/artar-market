@@ -185,6 +185,7 @@
     display: block; font-size: 10px; color: rgba(200,169,110,0.7);
     letter-spacing: 0.1em; margin-bottom: 4px;
   }
+  #nftModal {
     display: none; position: fixed; inset: 0; z-index: 40;
     background: rgba(0,0,0,0.92); align-items: flex-end; justify-content: center;
   }
@@ -1019,6 +1020,7 @@ document.getElementById('btnStartAR').addEventListener('click', async () => {
 });
 
 document.getElementById('btnVoice').addEventListener('click', () => {
+  if (isSpontaneousRunning || ttsPlaying) return;
   const btn = document.getElementById('btnVoice');
   const character = artistData?.character || 'utsusemi';
   const greetings = CHAR_GREETING[character] || CHAR_GREETING.utsusemi;

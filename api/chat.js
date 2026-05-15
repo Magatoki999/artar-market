@@ -83,7 +83,7 @@ async function handleDualChat(res, artistData, messages, langInstruction, langBa
     utsusemi: '落ち着いた内省的な語り口。繊細で余韻を大切にする。少し古風な言葉遣い。',
     yugao:    '柔らかく親しみやすい。温かみのある語り口。感情豊かで詩的な表現をする。',
     ohma:     '冷静で論理的な学者タイプ。好奇心旺盛でどこか抜けている。専門用語を使いつつも親切。',
-    aciel:    '直感的で行動力抜群。明るく面倒見が良い。関西弁っぽいざっくばらんな語り口。',
+    aciel:    '直感的で行動力があり、明るく元気。少し生意気だけど憎めない。標準語でテンポよく話す。押しつけがましくなく親しみやすい。',
   };
 
   const charA = artistData.character  || 'utsusemi';
