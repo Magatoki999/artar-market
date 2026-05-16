@@ -20,18 +20,25 @@ const GEMINI_VOICE = {
 function preprocessText(text, lang) {
   if (lang !== 'ja') return text;
   return text
-    // アルファベット略語をスペース区切りに（例：AR→エーアール的な読みを促す）
+    // 英略語→カタカナ
     .replace(/\bAR\b/g, 'エーアール')
     .replace(/\bNFT\b/g, 'エヌエフティー')
     .replace(/\bAI\b/g, 'エーアイ')
     .replace(/\bURL\b/g, 'ユーアールエル')
     .replace(/\bQR\b/g, 'キューアール')
+    .replace(/\bVR\b/g, 'ブイアール')
+    .replace(/\bSNS\b/g, 'エスエヌエス')
+    .replace(/\bDr\./g, 'ドクター')
+    // 数字→読みやすい形式
+    .replace(/(\d+)円/g, '$1えん')
+    .replace(/(\d+)個/g, '$1こ')
+    .replace(/(\d+)点/g, '$1てん')
     // 記号除去
-    .replace(/[【】「」『』〈〉《》]/g, '')
-    .replace(/…/g, '。')
+    .replace(/[【】「」『』〈〉《》＊※◆●▶]/g, '')
+    .replace(/…+/g, '。')
     .replace(/〜/g, 'から')
-    // 半角数字＋円
-    .replace(/(\d+)円/g, (_, n) => `${n}円`)
+    .replace(/・/g, '、')
+    .replace(/\s+/g, ' ')
     .trim();
 }
 
@@ -72,10 +79,10 @@ async function speakElevenLabs(req, res, text, voiceId, character, lang) {
         },
         body: JSON.stringify({
           text,
-          model_id: 'eleven_flash_v2_5',
-          language_code: lang === 'ja' ? 'ja' : lang === 'zh' ? 'zh' : lang === 'ko' ? 'ko' : undefined,
+          model_id: 'eleven_multilingual_v2',
+          language_code: 'ja',
           voice_settings: {
-            stability: 0.5,
+            stability: 0.55,
             similarity_boost: 0.75,
             style: 0.3,
             use_speaker_boost: true,
