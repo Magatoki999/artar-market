@@ -53,8 +53,16 @@ export default async function handler(req, res) {
   if (!text.trim()) return res.status(400).json({ error: 'text が空です' });
 
   const processedText = preprocessText(text, lang);
-  const elevenVoiceId = ELEVENLABS_VOICES[character];
 
+  // TTS_ENGINE 環境変数で切り替え（デフォルト: elevenlabs）
+  // 'voicevox' に設定するとVOICEVOXを使用
+  const engine = process.env.TTS_ENGINE || 'elevenlabs';
+
+  if (engine === 'voicevox') {
+    return await speakVoiceVox(req, res, processedText, character, lang);
+  }
+
+  const elevenVoiceId = ELEVENLABS_VOICES[character];
   if (elevenVoiceId) {
     return await speakElevenLabs(req, res, processedText, elevenVoiceId, character, lang);
   } else {
@@ -157,6 +165,59 @@ async function speakGemini(req, res, text, character, lang) {
 
   } catch (err) {
     console.error('[tts/gemini] エラー:', err.message);
+    return res.status(500).json({ error: err.message });
+  }
+}
+
+// ── VOICEVOX TTS ─────────────────────────────────────────────────
+// VOICEVOX_URL 環境変数にVOICEVOXサーバーのURLを設定
+// キャラ別speaker ID（VOICEVOXデフォルト音声）
+const VOICEVOX_SPEAKERS = {
+  utsusemi: 2,   // 四国めたん（ノーマル）→後で変更可
+  yugao:    0,   // 四国めたん（あまあま）
+  ohma:     3,   // ずんだもん（ノーマル）
+  aciel:    1,   // 四国めたん（ツンツン）
+};
+
+async function speakVoiceVox(req, res, text, character, lang) {
+  const baseUrl = process.env.VOICEVOX_URL;
+  if (!baseUrl) return res.status(500).json({ error: 'VOICEVOX_URL が未設定です' });
+
+  const speakerId = VOICEVOX_SPEAKERS[character] ?? 0;
+
+  try {
+    // 1. audio_query生成
+    const queryRes = await fetch(
+      `${baseUrl}/audio_query?text=${encodeURIComponent(text)}&speaker=${speakerId}`,
+      { method: 'POST' }
+    );
+    if (!queryRes.ok) throw new Error(`audio_query失敗: ${queryRes.status}`);
+    const query = await queryRes.json();
+
+    // 速度・ピッチ調整
+    query.speedScale  = (character === 'utsusemi' || character === 'yugao') ? 0.9 : 1.1;
+    query.pitchScale  = (character === 'utsusemi' || character === 'yugao') ? 0.05 : 0;
+    query.intonationScale = 1.2;
+
+    // 2. 音声合成
+    const synthRes = await fetch(
+      `${baseUrl}/synthesis?speaker=${speakerId}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(query),
+      }
+    );
+    if (!synthRes.ok) throw new Error(`synthesis失敗: ${synthRes.status}`);
+
+    const arrayBuffer = await synthRes.arrayBuffer();
+    const audioB64 = Buffer.from(arrayBuffer).toString('base64');
+
+    console.log(`[tts/voicevox] 完了 char=${character} speaker=${speakerId}`);
+    return res.status(200).json({ audioBase64: audioB64, mimeType: 'audio/wav' });
+
+  } catch (err) {
+    console.error('[tts/voicevox] エラー:', err.message);
     return res.status(500).json({ error: err.message });
   }
 }

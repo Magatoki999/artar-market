@@ -728,15 +728,67 @@ const CHAR_GREETING = {
   aciel:    { ja: 'わあ、来てくれた！この作品、すごく好きなんです。一緒に見ていきましょう！', en: "Oh, you came! I really love this work. Let's look at it together!" },
 };
 
+// === TTS キュー（同時発話防止） ===
+let ttsQueue = Promise.resolve();
+
+function enqueueTTS(text, lang, character) {
+  ttsQueue = ttsQueue.then(() => speakTTSCore(text, lang, character));
+  return ttsQueue;
+}
+
+function speakTTSCore(text, lang, character) {
+  return new Promise((resolve) => {
+    if (!text) { resolve(); return; }
+    fetch('/api/tts', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text, lang, character }),
+    })
+    .then(r => r.ok ? r.json() : Promise.reject('TTS error'))
+    .then(async data => {
+      if (!data.audioBase64) throw new Error('No audio');
+      const ctx = getAudioCtx();
+      const binary = atob(data.audioBase64);
+      const bytes  = new Uint8Array(binary.length);
+      for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+      const buf = await ctx.decodeAudioData(bytes.buffer);
+      const src = ctx.createBufferSource();
+      src.buffer = buf;
+      src.connect(ctx.destination);
+      src.start();
+      src.onended = resolve;
+    })
+    .catch(err => {
+      console.warn('[TTS]', err);
+      if (window.speechSynthesis) {
+        window.speechSynthesis.cancel();
+        const utter = new SpeechSynthesisUtterance(text);
+        utter.lang  = lang === 'ja' ? 'ja-JP' : 'en-US';
+        utter.rate  = (character === 'utsusemi' || character === 'yugao') ? 0.85 : 1.0;
+        utter.pitch = (character === 'utsusemi' || character === 'yugao') ? 1.15 : 0.9;
+        utter.onend = utter.onerror = resolve;
+        window.speechSynthesis.speak(utter);
+      } else { resolve(); }
+    });
+  });
+}
+
 async function speakTTS(text, lang) {
-  if (ttsPlaying) return;
+  if (isSpontaneousRunning) return;
   ttsPlaying = true;
   duckBGM(true);
   const character = artistData?.character || 'utsusemi';
-  speakTTSWithCallback(text, lang, character, () => {
-    ttsPlaying = false;
-    duckBGM(false);
-  });
+  await enqueueTTS(text, lang, character);
+  ttsPlaying = false;
+  duckBGM(false);
+}
+
+function speakTTSAsync(text, lang, character) {
+  return enqueueTTS(text, lang, character);
+}
+
+function speakTTSWithCallback(text, lang, character, onEnd) {
+  enqueueTTS(text, lang, character).then(onEnd);
 }
 
 // チャット受信時のリアクション
@@ -817,57 +869,6 @@ function getCharName(character) {
 }
 
 function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
-
-// TTS再生（Promise版：再生完了まで待機）
-function speakTTSAsync(text, lang, character) {
-  return new Promise((resolve) => {
-    const originalOnEnd = () => resolve();
-    speakTTSWithCallback(text, lang, character, originalOnEnd);
-  });
-}
-
-// コールバック付きTTS
-async function speakTTSWithCallback(text, lang, character, onEnd) {
-  if (!text) { onEnd(); return; }
-  try {
-    const res = await fetch('/api/tts', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ text, lang, character }),
-    });
-    if (!res.ok) throw new Error('TTS API error');
-    const data = await res.json();
-    if (!data.audioBase64) throw new Error('No audio data');
-
-    const ctx = getAudioCtx();
-    console.log(`[TTS] mimeType=${data.mimeType} base64len=${data.audioBase64.length}`);
-    const binary = atob(data.audioBase64);
-    const bytes  = new Uint8Array(binary.length);
-    for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
-    const audioBuffer = await ctx.decodeAudioData(bytes.buffer);
-
-    const source = ctx.createBufferSource();
-    source.buffer = audioBuffer;
-    source.connect(ctx.destination);
-    source.start();
-    source.onended = onEnd;
-  } catch (err) {
-    console.warn('[TTS]', err.message);
-    // フォールバック：Web Speech API
-    if (window.speechSynthesis) {
-      window.speechSynthesis.cancel();
-      const utter = new SpeechSynthesisUtterance(text);
-      utter.lang  = lang === 'ja' ? 'ja-JP' : 'en-US';
-      utter.rate  = (character === 'utsusemi' || character === 'yugao') ? 0.85 : 1.0;
-      utter.pitch = (character === 'utsusemi' || character === 'yugao') ? 1.15 : 0.9;
-      utter.onend = onEnd;
-      utter.onerror = onEnd;
-      window.speechSynthesis.speak(utter);
-    } else {
-      onEnd();
-    }
-  }
-}
 
 // 吹き出し表示
 function showSpeechBubble(text, target, speakerName) {
