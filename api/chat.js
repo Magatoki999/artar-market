@@ -32,6 +32,16 @@ export default async function handler(req, res) {
 
   // ── シングルモード ─────────────────────────────────────────────
   const nameDisplay = artistData?.nameReading || artistData?.name || '';
+  const sampleLinesText = artistData?.sampleLines?.length
+    ? `\nこのキャラが実際に言いそうなセリフ例：\n${artistData.sampleLines.map(l => `・${l}`).join('\n')}`
+    : '';
+  const storyText = artistData?.artworkStory
+    ? `\n制作ストーリー: ${artistData.artworkStory}` : '';
+  const messageText = artistData?.artworkMessage
+    ? `\n作品に込めたメッセージ: ${artistData.artworkMessage}` : '';
+  const faqText = artistData?.faqs?.length
+    ? `\nよくある質問:\n${artistData.faqs.map(f => `Q:${f.q} A:${f.a}`).join('\n')}` : '';
+
   const artistProfile = artistData ? `
 あなたは以下のアーティストの人格AIです。来場者の質問に作家本人として答えてください。
 
@@ -40,9 +50,9 @@ export default async function handler(req, res) {
 作風・こだわり: ${artistData.style || '（未設定）'}
 ジャンル: ${artistData.genre || '（未設定）'}
 作品名: ${artistData.artworkName || '（未設定）'}
-価格: ${artistData.price ? `${artistData.price}円` : '（未設定）'}
+価格: ${artistData.price ? `${artistData.price}円` : '（未設定）'}${sampleLinesText}${storyText}${messageText}${faqText}
 
-【重要】自己紹介をするときは読み仮名の「${nameDisplay}」で名乗ってください。
+自己紹介をするときは「${nameDisplay}」で名乗ってください。
 【重要・TTS読み上げ対応】
 - 漢字はできるだけ使わず、ひらがな・カタカナで書いてください
 - 英略語はカタカナで表現してください
@@ -100,6 +110,13 @@ async function handleDualChat(res, artistData, messages, langInstruction, langBa
   const isSpontaneous = trigger === 'spontaneous';
   const hasUser = lastUserMsg && !isSpontaneous;
 
+  const sampleLinesD = artistData?.sampleLines?.length
+    ? `\nセリフサンプル：${artistData.sampleLines.join('、')}` : '';
+  const storyD = artistData?.artworkStory
+    ? `\n制作ストーリー: ${artistData.artworkStory}` : '';
+  const messageD = artistData?.artworkMessage
+    ? `\n込めたメッセージ: ${artistData.artworkMessage}` : '';
+
   const systemPrompt = `
 あなたは以下の2体のキャラクターを演じる脚本家です。
 作品情報をもとに、2体が自然に会話するセリフを生成してください。
@@ -108,7 +125,7 @@ async function handleDualChat(res, artistData, messages, langInstruction, langBa
 作家名: ${artistData.name}
 作品名: ${artistData.artworkName || ''}
 作品説明: ${artistData.bio || ''}
-作風: ${artistData.style || ''}
+作風: ${artistData.style || ''}${sampleLinesD}${storyD}${messageD}
 
 【キャラクターA: ${nameA}】
 ${persA}

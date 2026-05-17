@@ -440,7 +440,12 @@
       <textarea id="artistStyle" placeholder="例：手刷りの質感を大切にしています。一点ものの良さ、インクの重なり、紙の風合いを伝えたいです。" maxlength="300"></textarea>
     </div>
 
-    <!-- 作品情報 -->
+    <div class="form-group">
+      <label>キャラクターのセリフサンプル<span class="hint">このキャラが実際に言いそうな言葉を入力するとAIの人格が深まります（任意・3つまで）</span></label>
+      <input type="text" id="sampleLine1" placeholder="例：この色を出すのに3ヶ月かかりました" maxlength="100" style="margin-bottom:8px;">
+      <input type="text" id="sampleLine2" placeholder="例：見る時間帯によって全然違う顔になるんです" maxlength="100" style="margin-bottom:8px;">
+      <input type="text" id="sampleLine3" placeholder="例：失敗作から生まれた作品なんですよ" maxlength="100">
+    </div>
     <div class="section-label">作品情報</div>
 
     <div class="form-group">
@@ -490,7 +495,30 @@
     </div>
 
     <div class="form-group">
-      <label>作品ジャンル</label>
+      <label>制作ストーリー<span class="hint">きっかけ・制作過程・苦労した点など（任意）</span></label>
+      <textarea id="artworkStory" placeholder="例：昨年の秋、京都の路地裏で見た光の差し込み方がきっかけでした。何度も色を塗り直して、ようやくあの瞬間を捉えられた気がします。" maxlength="400"></textarea>
+    </div>
+
+    <div class="form-group">
+      <label>作品に込めたメッセージ<span class="hint">見る人に感じてほしいこと（任意）</span></label>
+      <textarea id="artworkMessage" placeholder="例：忙しい日常の中でふと立ち止まって、静かな時間を感じてもらえたらうれしいです。" maxlength="300"></textarea>
+    </div>
+
+    <div class="form-group">
+      <label>よくある質問とその答え<span class="hint">来場者から聞かれそうな質問をあらかじめ登録（任意）</span></label>
+      <div style="margin-bottom:10px;">
+        <input type="text" id="faq1q" placeholder="質問例：この作品はどのくらいの大きさですか？" maxlength="100" style="margin-bottom:4px;">
+        <input type="text" id="faq1a" placeholder="答え例：A3サイズ（約30×42cm）です。額装してお届けします。" maxlength="200">
+      </div>
+      <div style="margin-bottom:10px;">
+        <input type="text" id="faq2q" placeholder="質問例：制作にどのくらい時間がかかりますか？" maxlength="100" style="margin-bottom:4px;">
+        <input type="text" id="faq2a" placeholder="答え例：下書きから完成まで約2週間かかります。" maxlength="200">
+      </div>
+      <div>
+        <input type="text" id="faq3q" placeholder="質問例：他のサイズや色違いはありますか？" maxlength="100" style="margin-bottom:4px;">
+        <input type="text" id="faq3a" placeholder="答え例：受注制作で対応できます。お気軽にご相談ください。" maxlength="200">
+      </div>
+    </div>
       <select id="artGenre">
         <option value="">— 選択してください —</option>
         <option value="原画・水彩">原画・水彩</option>
@@ -858,24 +886,40 @@ document.getElementById('registerForm').addEventListener('submit', async functio
   const isDual = document.getElementById('dualModeToggle').checked;
   const char2El = document.querySelector('input[name="character2"]:checked');
 
+  const sampleLines = [
+    document.getElementById('sampleLine1').value.trim(),
+    document.getElementById('sampleLine2').value.trim(),
+    document.getElementById('sampleLine3').value.trim(),
+  ].filter(Boolean);
+
+  const faqs = [
+    { q: document.getElementById('faq1q').value.trim(), a: document.getElementById('faq1a').value.trim() },
+    { q: document.getElementById('faq2q').value.trim(), a: document.getElementById('faq2a').value.trim() },
+    { q: document.getElementById('faq3q').value.trim(), a: document.getElementById('faq3a').value.trim() },
+  ].filter(f => f.q && f.a);
+
   const payload = {
     name,
-    nameReading:  document.getElementById('artistNameReading').value.trim(),
+    nameReading:     document.getElementById('artistNameReading').value.trim(),
     bio,
-    style:        document.getElementById('artistStyle').value.trim(),
-    artworkUrl:   document.getElementById('artworkUrl').value.trim(),
-    glbUrl:       uploadedGlbUrl,
-    glbUrl2:      isDual ? uploadedGlbUrl2 : '',
-    nftImageUrl:  uploadedNftImageUrl,
+    style:           document.getElementById('artistStyle').value.trim(),
+    sampleLines,
+    artworkUrl:      document.getElementById('artworkUrl').value.trim(),
+    glbUrl:          uploadedGlbUrl,
+    glbUrl2:         isDual ? uploadedGlbUrl2 : '',
+    nftImageUrl:     uploadedNftImageUrl,
     artworkName,
+    artworkStory:    document.getElementById('artworkStory').value.trim(),
+    artworkMessage:  document.getElementById('artworkMessage').value.trim(),
+    faqs,
     price,
-    genre:        document.getElementById('artGenre').value,
-    twitter:      document.getElementById('twitter').value.trim(),
-    instagram:    document.getElementById('instagram').value.trim(),
-    email:        document.getElementById('email').value.trim(),
-    character:    document.querySelector('input[name="character"]:checked').value,
-    character2:   isDual && char2El ? char2El.value : '',
-    dualMode:     isDual,
+    genre:           document.getElementById('artGenre').value,
+    twitter:         document.getElementById('twitter').value.trim(),
+    instagram:       document.getElementById('instagram').value.trim(),
+    email:           document.getElementById('email').value.trim(),
+    character:       document.querySelector('input[name="character"]:checked').value,
+    character2:      isDual && char2El ? char2El.value : '',
+    dualMode:        isDual,
   };
 
   try {
