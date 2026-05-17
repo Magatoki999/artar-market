@@ -33,8 +33,9 @@ function preprocessText(text, lang) {
     .replace(/(\d+)円/g, '$1えん')
     .replace(/(\d+)個/g, '$1こ')
     .replace(/(\d+)点/g, '$1てん')
-    // 記号除去
-    .replace(/[【】「」『』〈〉《》＊※◆●▶]/g, '')
+    // 読み仮名カッコを除去（例：山田花子（やまだはなこ）→ 山田花子）
+    .replace(/（[^）]*）/g, '')
+    .replace(/\([^)]*\)/g, '')
     .replace(/…+/g, '。')
     .replace(/〜/g, 'から')
     .replace(/・/g, '、')
