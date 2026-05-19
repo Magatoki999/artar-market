@@ -123,6 +123,20 @@
   }
   .btn-nft:hover { background: #a04e30; }
 
+  /* 購入済みボタン */
+  .btn-nft-purchased {
+    flex: 1; background: rgba(80,180,80,0.15);
+    border: 1px solid rgba(80,200,80,0.35);
+    color: rgba(120,220,120,0.9); border-radius: 6px; padding: 14px;
+    font-family: 'Shippori Mincho', serif; font-size: 13px; font-weight: 600;
+    letter-spacing: 0.08em; cursor: default;
+    display: flex; flex-direction: column; align-items: center; gap: 2px;
+  }
+  .btn-nft-purchased .purchased-sub {
+    font-size: 10px; color: rgba(120,220,120,0.5);
+    letter-spacing: 0.15em; font-family: 'DM Mono', monospace;
+  }
+
   /* --- チャットパネル --- */
   #chatPanel {
     position: fixed; bottom: 0; left: 0; right: 0; z-index: 30;
@@ -417,6 +431,26 @@ function updateLoadBar(pct) {
   document.getElementById('loadingBar').style.width = pct + '%';
 }
 
+// === 購入済みチェック ===
+async function checkPurchased(email) {
+  if (!email || !artistId) return;
+  try {
+    const res = await fetch(`/api/purchase-check?artistId=${artistId}&email=${encodeURIComponent(email)}`);
+    const data = await res.json();
+    if (data.purchased) setPurchasedState(data);
+  } catch { /* チェック失敗は無視 */ }
+}
+
+function setPurchasedState(record) {
+  const btn = document.getElementById('btnNFT');
+  if (!btn) return;
+  btn.className = 'btn-nft-purchased';
+  btn.innerHTML = `✦ 購入済み<span class="purchased-sub">NFT ISSUED · ${record.certId || ''}</span>`;
+  btn.onclick = null;
+  const priceEl = document.getElementById('startPrice');
+  if (priceEl) priceEl.textContent = '✦ 購入済み';
+}
+
 // === アーティスト情報取得 ===
 async function fetchArtist() {
   updateLoadBar(20);
@@ -481,6 +515,10 @@ function populateUI() {
     btn.textContent = '⊕ ' + a.instagram;
     snsRow.appendChild(btn);
   }
+
+  // 購入済み自動チェック（このデバイスで以前購入していた場合）
+  const savedEmail = localStorage.getItem(`artar_email_${artistId}`);
+  if (savedEmail) checkPurchased(savedEmail);
 }
 
 // === キャラクター設定 ===
@@ -1282,6 +1320,10 @@ document.getElementById('btnCheckout').addEventListener('click', async () => {
       msg.innerHTML = `<div style="font-size:40px;margin-bottom:12px;">✦</div><div style="font-size:18px;color:#D4AF37;letter-spacing:0.2em;margin-bottom:8px;">ありがとうございます</div><div style="font-size:12px;color:rgba(255,255,255,0.5);line-height:2;">購入証明NFTを発行中です。<br>しばらくするとメールが届きます。</div>`;
       document.body.appendChild(msg);
       setTimeout(() => msg.remove(), 5000);
+      // メールを記憶して購入済みボタンに切り替え（webhook処理後の3秒後）
+      const purchasedEmail = document.getElementById('purchaseEmail').value.trim();
+      localStorage.setItem(`artar_email_${artistId}`, purchasedEmail);
+      setTimeout(() => checkPurchased(purchasedEmail), 3000);
     }
   } catch (err) {
     document.getElementById('cardErrors').textContent = 'エラー: ' + err.message;

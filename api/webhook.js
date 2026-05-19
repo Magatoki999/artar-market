@@ -4,6 +4,7 @@
 
 import { ethers } from 'ethers';
 import { Resend } from 'resend';
+import { createHash } from 'crypto';
 
 const NFT_ABI = [
   'function mintNFT(address recipient, string memory tokenURI) public returns (uint256)',
@@ -22,6 +23,39 @@ export const config = {
   api: { bodyParser: false },
   maxDuration: 60,
 };
+
+// ── Upstash Redis ─────────────────────────────────────────────────────
+async function kvSet(key, value, exSeconds) {
+  const body = exSeconds
+    ? JSON.stringify(['SET', key, JSON.stringify(value), 'EX', exSeconds])
+    : JSON.stringify(['SET', key, JSON.stringify(value)]);
+  const res = await fetch(`${process.env.KV_REST_API_URL}/pipeline`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${process.env.KV_REST_API_TOKEN}`,
+      'Content-Type': 'application/json',
+    },
+    body,
+  });
+  if (!res.ok) throw new Error(`Redis SET failed: ${res.status}`);
+}
+
+// ── 購入済み記録を保存 ─────────────────────────────────────────────────
+// キー: purchase:{artistId}:{emailHash}
+// 値:   { certId, txHash, artworkName, purchasedAt }
+// TTL:  90日（アーティストデータと揃える）
+async function savePurchaseRecord({ artistId, email, certId, txHash, artworkName }) {
+  const emailHash = createHash('sha256').update(email.toLowerCase().trim()).digest('hex').slice(0, 16);
+  const key = `purchase:${artistId}:${emailHash}`;
+  const value = {
+    certId,
+    txHash,
+    artworkName,
+    purchasedAt: new Date().toISOString(),
+  };
+  await kvSet(key, value, 90 * 24 * 60 * 60); // 90日
+  console.log('[webhook] 購入記録保存:', key);
+}
 
 // ── Privy: メール → ウォレット取得 or 生成 ──────────────────────────
 async function getOrCreateWallet(email) {
@@ -186,6 +220,15 @@ export default async function handler(req, res) {
       certId,
     });
     console.log('[webhook] NFT mint完了:', txHash);
+
+    // ── 購入記録を Redis に保存（購入済み表示用） ──
+    await savePurchaseRecord({
+      artistId:    metadata.artistId,
+      email,
+      certId,
+      txHash,
+      artworkName: metadata.artworkName || '',
+    });
 
     // 購入者へメール
     await sendBuyerEmail({
