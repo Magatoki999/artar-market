@@ -1,6 +1,6 @@
 // api/tts.js
 // TTS API - ElevenLabs（空蝉・夕顔・Aciel）+ Gemini TTS（Dr.Ohma）
-// POST /api/tts { text, lang, character }
+// POST /api/tts { text, lang, character, artistName?, artistNameReading? }
 
 import { GoogleGenAI } from '@google/genai';
 
@@ -16,31 +16,94 @@ const GEMINI_VOICE = {
   ohma: 'Charon',
 };
 
-// テキスト前処理（読み間違い対策）
-function preprocessText(text, lang) {
-  if (lang !== 'ja') return text;
-  return text
-    // 英略語→カタカナ
-    .replace(/\bAR\b/g, 'エーアール')
-    .replace(/\bNFT\b/g, 'エヌエフティー')
-    .replace(/\bAI\b/g, 'エーアイ')
-    .replace(/\bURL\b/g, 'ユーアールエル')
-    .replace(/\bQR\b/g, 'キューアール')
-    .replace(/\bVR\b/g, 'ブイアール')
-    .replace(/\bSNS\b/g, 'エスエヌエス')
-    .replace(/\bDr\./g, 'ドクター')
-    // 数字→読みやすい形式
+// ── テキスト前処理（読み間違い対策）────────────────────────────────
+function preprocessText(text, lang, opts = {}) {
+  if (lang && !lang.startsWith('ja')) return text;
+
+  let t = text;
+
+  // ① 読み仮名カッコを「展開」する（除去ではなく読み仮名側を採用）
+  // chat.jsが「山田花子（やまだはなこ）」と返してくるのを「やまだはなこ」に変換
+  // ※ カッコ内がひらがな/カタカナのみの場合だけ展開（英語説明などは除去）
+  t = t.replace(/([^\s（(]{1,20})（([ぁ-んァ-ヶー]{1,20})）/g, '$2');
+  t = t.replace(/([^\s（(]{1,20})\(([ぁ-んァ-ヶー]{1,20})\)/g, '$2');
+  // 上記に当てはまらないカッコ（説明文など）は除去
+  t = t.replace(/（[^）]{1,40}）/g, '');
+  t = t.replace(/\([^)]{1,40}\)/g, '');
+
+  // ② アーティスト名の動的読み仮名置換（最優先）
+  // artistName と artistNameReading が渡されていれば置換
+  if (opts.artistName && opts.artistNameReading) {
+    const escaped = opts.artistName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    t = t.replace(new RegExp(escaped, 'g'), opts.artistNameReading);
+  }
+
+  // ③ 記号・装飾文字を除去（TTSが詰まる原因になる）
+  t = t
+    .replace(/[★☆◆◇◎●○■□▲△▼▽♦♠♣♥♡❤🌸✦✧※→←↑↓]/g, '')
+    .replace(/[「」『』【】〈〉《》〔〕]/g, '')
+    .replace(/[…‥]+/g, '。')
+    .replace(/[ー]{2,}/g, 'ー')
+    .replace(/[！!]{2,}/g, '！')
+    .replace(/[？?]{2,}/g, '？')
+    .replace(/〜+/g, 'から')
+    .replace(/・{2,}/g, '。')
+    .replace(/・/g, '、');
+
+  // ④ 価格・数字の正規化
+  t = t
+    .replace(/¥\s*([0-9,]+)/g, (_, n) => n.replace(/,/g, '') + 'えん')
+    .replace(/([0-9]{1,3}),([0-9]{3})/g, '$1$2')   // カンマ区切り数字を結合
+    .replace(/(\d+)%/g, '$1パーセント')
     .replace(/(\d+)円/g, '$1えん')
     .replace(/(\d+)個/g, '$1こ')
     .replace(/(\d+)点/g, '$1てん')
-    // 読み仮名カッコを除去（例：山田花子（やまだはなこ）→ 山田花子）
-    .replace(/（[^）]*）/g, '')
-    .replace(/\([^)]*\)/g, '')
-    .replace(/…+/g, '。')
-    .replace(/〜/g, 'から')
-    .replace(/・/g, '、')
-    .replace(/\s+/g, ' ')
+    .replace(/(\d+)枚/g, '$1まい')
+    .replace(/(\d+)本/g, '$1ほん')
+    .replace(/(\d+)作/g, '$1さく')
+    .replace(/(\d+)\s*\/\s*(\d+)/g, '$1分の$2');
+
+  // ⑤ 英略語・固有名詞 → カタカナ（長いものを先に）
+  const abbrevMap = [
+    [/\bArtAR\b/g,     'アートエーアール'],
+    [/\bVOICEVOX\b/g,  'ボイスボックス'],
+    [/\bAR\b/g,        'エーアール'],
+    [/\bNFT\b/g,       'エヌエフティー'],
+    [/\bAI\b/g,        'エーアイ'],
+    [/\bURL\b/g,       'ユーアールエル'],
+    [/\bQR\b/g,        'キューアール'],
+    [/\bVR\b/g,        'ブイアール'],
+    [/\bXR\b/g,        'エックスアール'],
+    [/\bSNS\b/g,       'エスエヌエス'],
+    [/\bDr\.\s*/g,     'ドクター'],
+    [/\bETH\b/g,       'イーサリアム'],
+    [/\bPOL\b/g,       'ポル'],
+    [/\bPC\b/g,        'パソコン'],
+    [/\bID\b/g,        'アイディー'],
+    [/\biOS\b/g,       'アイオーエス'],
+    [/\bWeb\b/gi,      'ウェブ'],
+    [/\bApp\b/g,       'アプリ'],
+    [/\bGLB\b/g,       'ジーエルビー'],
+    [/\bJPY\b/g,       'えん'],
+    [/\bJP\b/g,        'ジェーピー'],
+    [/\bOK\b/gi,       'オーケー'],
+    [/\bNG\b/g,        'エヌジー'],
+  ];
+  for (const [pattern, replacement] of abbrevMap) {
+    t = t.replace(pattern, replacement);
+  }
+
+  // ⑥ 残った連続アルファベット大文字（3文字以上）→ 1文字ずつスペース区切りで読ませる
+  t = t.replace(/\b([A-Z]{3,})\b/g, (m) => m.split('').join(' '));
+
+  // ⑦ 空白・改行の正規化
+  t = t
+    .replace(/[ \t\u3000]+/g, ' ')
+    .replace(/\n{2,}/g, '。')
+    .replace(/\n/g, '、')
     .trim();
+
+  return t;
 }
 
 export default async function handler(req, res) {
@@ -50,13 +113,22 @@ export default async function handler(req, res) {
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
-  const { text = '', lang = 'ja', character = 'utsusemi' } = req.body;
+  const {
+    text = '',
+    lang = 'ja',
+    character = 'utsusemi',
+    artistName = '',
+    artistNameReading = '',
+  } = req.body;
+
   if (!text.trim()) return res.status(400).json({ error: 'text が空です' });
 
-  const processedText = preprocessText(text, lang);
+  const processedText = preprocessText(text, lang, { artistName, artistNameReading });
 
-  // TTS_ENGINE 環境変数で切り替え（デフォルト: elevenlabs）
-  // 'voicevox' に設定するとVOICEVOXを使用
+  if (processedText !== text) {
+    console.log('[tts] preprocess:', JSON.stringify(text.slice(0, 60)), '→', JSON.stringify(processedText.slice(0, 60)));
+  }
+
   const engine = process.env.TTS_ENGINE || 'elevenlabs';
 
   if (engine === 'voicevox') {
@@ -171,13 +243,11 @@ async function speakGemini(req, res, text, character, lang) {
 }
 
 // ── VOICEVOX TTS ─────────────────────────────────────────────────
-// VOICEVOX_URL 環境変数にVOICEVOXサーバーのURLを設定
-// キャラ別speaker ID（VOICEVOXデフォルト音声）
 const VOICEVOX_SPEAKERS = {
-  utsusemi: 2,   // 四国めたん（ノーマル）→後で変更可
-  yugao:    0,   // 四国めたん（あまあま）
-  ohma:     3,   // ずんだもん（ノーマル）
-  aciel:    1,   // 四国めたん（ツンツン）
+  utsusemi: 2,
+  yugao:    0,
+  ohma:     3,
+  aciel:    1,
 };
 
 async function speakVoiceVox(req, res, text, character, lang) {
@@ -187,7 +257,6 @@ async function speakVoiceVox(req, res, text, character, lang) {
   const speakerId = VOICEVOX_SPEAKERS[character] ?? 0;
 
   try {
-    // 1. audio_query生成
     const queryRes = await fetch(
       `${baseUrl}/audio_query?text=${encodeURIComponent(text)}&speaker=${speakerId}`,
       { method: 'POST' }
@@ -195,12 +264,10 @@ async function speakVoiceVox(req, res, text, character, lang) {
     if (!queryRes.ok) throw new Error(`audio_query失敗: ${queryRes.status}`);
     const query = await queryRes.json();
 
-    // 速度・ピッチ調整
-    query.speedScale  = (character === 'utsusemi' || character === 'yugao') ? 0.9 : 1.1;
-    query.pitchScale  = (character === 'utsusemi' || character === 'yugao') ? 0.05 : 0;
+    query.speedScale      = (character === 'utsusemi' || character === 'yugao') ? 0.9 : 1.1;
+    query.pitchScale      = (character === 'utsusemi' || character === 'yugao') ? 0.05 : 0;
     query.intonationScale = 1.2;
 
-    // 2. 音声合成
     const synthRes = await fetch(
       `${baseUrl}/synthesis?speaker=${speakerId}`,
       {

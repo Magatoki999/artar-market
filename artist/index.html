@@ -780,7 +780,13 @@ function speakTTSCore(text, lang, character) {
     fetch('/api/tts', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ text, lang, character }),
+      body: JSON.stringify({
+        text,
+        lang,
+        character,
+        artistName:        artistData?.name         || '',
+        artistNameReading: artistData?.nameReading  || '',
+      }),
     })
     .then(r => r.ok ? r.json() : Promise.reject('TTS error'))
     .then(async data => {
