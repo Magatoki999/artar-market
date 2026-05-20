@@ -26,16 +26,17 @@ export const config = {
 
 // ── Upstash Redis ─────────────────────────────────────────────────────
 async function kvSet(key, value, exSeconds) {
-  const body = exSeconds
-    ? JSON.stringify(['SET', key, JSON.stringify(value), 'EX', exSeconds])
-    : JSON.stringify(['SET', key, JSON.stringify(value)]);
+  // /pipeline は配列の配列形式で受け取る
+  const command = exSeconds
+    ? ['SET', key, JSON.stringify(value), 'EX', exSeconds]
+    : ['SET', key, JSON.stringify(value)];
   const res = await fetch(`${process.env.KV_REST_API_URL}/pipeline`, {
     method: 'POST',
     headers: {
       Authorization: `Bearer ${process.env.KV_REST_API_TOKEN}`,
       'Content-Type': 'application/json',
     },
-    body,
+    body: JSON.stringify([command]),  // ← 配列の配列
   });
   if (!res.ok) throw new Error(`Redis SET failed: ${res.status}`);
 }
@@ -221,14 +222,18 @@ export default async function handler(req, res) {
     });
     console.log('[webhook] NFT mint完了:', txHash);
 
-    // ── 購入記録を Redis に保存（購入済み表示用） ──
-    await savePurchaseRecord({
-      artistId:    metadata.artistId,
-      email,
-      certId,
-      txHash,
-      artworkName: metadata.artworkName || '',
-    });
+    // ── 購入記録を Redis に保存（失敗してもメール送信は続行） ──
+    try {
+      await savePurchaseRecord({
+        artistId:    metadata.artistId,
+        email,
+        certId,
+        txHash,
+        artworkName: metadata.artworkName || '',
+      });
+    } catch (redisErr) {
+      console.error('[webhook] 購入記録保存失敗（メール送信は続行）:', redisErr.message);
+    }
 
     // 購入者へメール
     await sendBuyerEmail({
