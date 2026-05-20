@@ -15,8 +15,8 @@ const NFT_ABI = [
 const CHAR_DEFAULT_NFT = {
   utsusemi: 'https://pub-5162ceda92fb4bf7aca56c2066725d33.r2.dev/nft/utsusemi_default.png',
   yugao:    'https://pub-5162ceda92fb4bf7aca56c2066725d33.r2.dev/nft/yugao_default.png',
-  ohma:     'https://pub-5162ceda92fb4bf7aca56c2066725d33.r2.dev/nft/ohma_default.png', // 登録後に追加
-  aciel:    'https://pub-5162ceda92fb4bf7aca56c2066725d33.r2.dev/nft/aciel_default.png', // 登録後に追加
+  ohma:     'https://emerald-wonderful-rabbit-764.mypinata.cloud/ipfs/bafybeibvvdpaoszp4okzxtcndod2elfc3273sicf4uxiwvlga2n24q7bde',
+  aciel:    'https://emerald-wonderful-rabbit-764.mypinata.cloud/ipfs/bafybeicfkrjnfnccmkndejd2ku2c4rczthicon3estj4ju3wxqhupjiasa',
 };
 
 export const config = {
